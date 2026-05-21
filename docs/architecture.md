@@ -120,6 +120,8 @@ python3 main.py biblio-export --project autonomy_blockchain_paper --format bibte
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --doi 10.xxxx/example
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --isbn 9780262531559
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
+python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
+python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0001 --title "..." --author "..."
 ```
 
 Designed for later modules:
@@ -141,7 +143,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 2. Dataset Manager | Copy/register PDFs, bulk add PDFs, avoid duplicates, document IDs | `add-pdf`, `add-pdfs`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
-| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, individually or in bulk | `biblio-enrich` | Implemented |
+| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, and search candidate matches | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
@@ -164,6 +166,8 @@ Implemented dataclass models:
 - `BibliographicRecord`: curated bibliographic metadata for one document.
 - `BibliographyValidationResult`: citation-readiness validation result.
 - `BibliographyEnrichmentResult`: result of external DOI/ISBN enrichment.
+- `BibliographyCandidate`: non-applied candidate metadata from title/author search.
+- `BibliographyIdentifierDiagnostic`: diagnostic row for records without DOI/ISBN.
 
 Later modules should add:
 
@@ -201,7 +205,7 @@ Testing proceeds module by module:
 - Module 2: verify duplicate detection using file checksums and stable document IDs.
 - Module 3: run PDF extraction against small fixture PDFs and assert text/metadata/state outputs.
 - Module 3.5: create bibliography templates, set curated metadata, validate required fields, export BibTeX and CSL-JSON.
-- Module 3.6: enrich metadata using fake DOI/ISBN API clients, without depending on internet during tests.
+- Module 3.6: enrich metadata and search candidates using fake external API clients, without depending on internet during tests.
 - Module 4: test deterministic chunking, index metadata, and reindex behavior.
 - Module 5: test retrieval and prompt composition with a fake LLM provider that refuses unsupported answers.
 - Module 6: test outline output schema and source mapping using fixture chunks.
@@ -214,7 +218,7 @@ The current tests use `unittest` so they run without extra dependencies, and the
 2. Module 2: add PDF registration with SHA-256 duplicate checks in `ingestion_state.json`.
 3. Module 3: extract text/metadata with PyMuPDF and update `ingestion_state.json`.
 4. Module 3.5: curate bibliographic metadata and export verified records.
-5. Module 3.6: enrich bibliographic metadata from DOI/ISBN sources.
+5. Module 3.6: enrich bibliographic metadata from DOI/ISBN sources and search candidates for records without identifiers.
 6. Run tests and manually validate bibliography readiness.
 7. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
 8. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
@@ -284,6 +288,8 @@ Enrich bibliographic metadata from external identifier APIs:
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --doi 10.xxxx/example
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --isbn 9780262531559
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
+python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
+python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0001 --title "Title" --author "Family"
 ```
 
 External metadata enrichment is limited to citation metadata and does not expand

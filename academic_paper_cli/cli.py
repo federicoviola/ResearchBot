@@ -19,8 +19,10 @@ from academic_paper_cli.bibliography_manager import (
 )
 from academic_paper_cli.bibliography_enrichment import (
     BibliographyEnrichmentError,
+    diagnose_missing_identifiers,
     enrich_all_bibliography_records,
     enrich_bibliography_record,
+    search_bibliography_candidates,
 )
 from academic_paper_cli.dataset_manager import (
     DatasetManagerError,
@@ -271,6 +273,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    biblio_missing = subparsers.add_parser(
+        "biblio-missing-identifiers",
+        help="Show records that still lack DOI/ISBN identifiers.",
+    )
+    biblio_missing.add_argument("--project", required=True, help="Project folder name.")
+    biblio_missing.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_search = subparsers.add_parser(
+        "biblio-search",
+        help="Search external services for candidate metadata without applying it.",
+    )
+    biblio_search.add_argument("--project", required=True, help="Project folder name.")
+    biblio_search.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_search.add_argument("--title", help="Search title override.")
+    biblio_search.add_argument("--author", help="Search author override.")
+    biblio_search.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Maximum number of candidates to return.",
+    )
+    biblio_search.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -474,6 +507,29 @@ def main(argv: list[str] | None = None) -> int:
             _render_bibliography([result.record], title=f"Bibliographic Record: {args.doc_id}")
             return 0
 
+        if args.command == "biblio-missing-identifiers":
+            diagnostics = diagnose_missing_identifiers(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+            )
+            _render_identifier_diagnostics(
+                diagnostics,
+                title=f"Missing Identifiers: {args.project}",
+            )
+            return 0
+
+        if args.command == "biblio-search":
+            candidates = search_bibliography_candidates(
+                project_name=args.project,
+                document_id=args.doc_id,
+                projects_root=Path(args.projects_root),
+                title=args.title,
+                author=args.author,
+                limit=args.limit,
+            )
+            _render_candidates(candidates, title=f"Candidates: {args.doc_id}")
+            return 0
+
     except (
         ProjectManagerError,
         DatasetManagerError,
@@ -673,6 +729,62 @@ def _render_enrichment_results(results, title: str) -> None:
             result.record.year,
             result.record.citation_key,
             result.record.title,
+        )
+
+    console.print(table)
+
+
+def _render_identifier_diagnostics(diagnostics, title: str) -> None:
+    if not diagnostics:
+        console.print("[green]All bibliographic records have DOI or ISBN identifiers.[/green]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("File")
+    table.add_column("Year")
+    table.add_column("Title")
+    table.add_column("Suggestion")
+
+    for diagnostic in diagnostics:
+        table.add_row(
+            diagnostic.document_id,
+            diagnostic.original_filename,
+            diagnostic.year,
+            diagnostic.title,
+            diagnostic.suggestion,
+        )
+
+    console.print(table)
+
+
+def _render_candidates(candidates, title: str) -> None:
+    if not candidates:
+        console.print("[yellow]No candidates found.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("#", style="bold")
+    table.add_column("Source")
+    table.add_column("Year")
+    table.add_column("Authors")
+    table.add_column("Title")
+    table.add_column("DOI")
+    table.add_column("ISBN")
+
+    for index, candidate in enumerate(candidates, start=1):
+        authors = "; ".join(
+            f"{author.family}, {author.given}".strip().strip(",")
+            for author in candidate.authors
+        )
+        table.add_row(
+            str(index),
+            candidate.source,
+            candidate.year,
+            authors,
+            candidate.title,
+            candidate.doi,
+            candidate.isbn,
         )
 
     console.print(table)

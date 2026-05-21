@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from academic_paper_cli.bibliography_manager import (
@@ -23,10 +23,13 @@ from academic_paper_cli.bibliography_manager import (
 )
 from academic_paper_cli.models import (
     BibliographicAuthor,
+    BibliographyCandidate,
+    BibliographyIdentifierDiagnostic,
     BibliographicRecord,
     BulkBibliographyEnrichmentResult,
     BibliographyEnrichmentResult,
 )
+from academic_paper_cli.dataset_manager import list_documents
 
 
 Fetcher = Callable[[str], dict[str, Any]]
@@ -118,6 +121,67 @@ def enrich_all_bibliography_records(
         skipped=skipped,
         failed=failed,
     )
+
+
+def diagnose_missing_identifiers(
+    project_name: str,
+    projects_root: Path = Path("projects"),
+) -> list[BibliographyIdentifierDiagnostic]:
+    """Report records that are not ready for identifier-based enrichment."""
+
+    records = {record.document_id: record for record in list_bibliography(project_name, projects_root)}
+    documents = {document.document_id: document for document in list_documents(project_name, projects_root)}
+    diagnostics: list[BibliographyIdentifierDiagnostic] = []
+    for document_id, record in sorted(records.items()):
+        document = documents.get(document_id)
+        has_identifier = bool(record.doi or record.isbn)
+        if has_identifier:
+            continue
+        title = record.title
+        suggestion = "Run biblio-search with the detected title or add DOI/ISBN manually."
+        if not title:
+            suggestion = "Add title/author manually or inspect the PDF; no identifier was detected."
+        diagnostics.append(
+            BibliographyIdentifierDiagnostic(
+                document_id=document_id,
+                original_filename=document.original_filename if document else "",
+                title=title,
+                year=record.year,
+                doi=record.doi,
+                isbn=record.isbn,
+                status=record.metadata_status,
+                suggestion=suggestion,
+            )
+        )
+    return diagnostics
+
+
+def search_bibliography_candidates(
+    project_name: str,
+    document_id: str,
+    projects_root: Path = Path("projects"),
+    title: str | None = None,
+    author: str | None = None,
+    limit: int = 5,
+    fetcher: Fetcher | None = None,
+) -> list[BibliographyCandidate]:
+    """Search external services for candidate bibliographic records."""
+
+    fetch = fetcher or _fetch_json
+    record = show_bibliography_record(project_name, document_id, projects_root)
+    query_title = (title or record.title).strip()
+    if not query_title:
+        raise BibliographyEnrichmentError(
+            "Provide --title or set a title in the bibliographic record first."
+        )
+    query_author = (author or _first_author_name(record)).strip()
+    candidates = [
+        *_search_crossref_candidates(query_title, query_author, limit, fetch),
+        *_search_openlibrary_candidates(query_title, query_author, limit, fetch),
+    ]
+    candidates = _rank_candidates(candidates, query_title, query_author)[:limit]
+    _store_candidates(project_name, document_id, projects_root, candidates)
+    return candidates
 
 
 def _enrich_from_doi(
@@ -347,6 +411,144 @@ def _openlibrary_authors(payload: dict[str, Any], fetcher: Fetcher) -> list[Bibl
             family, given = _split_name(name)
             authors.append(BibliographicAuthor(family=family, given=given))
     return authors
+
+
+def _search_crossref_candidates(
+    title: str,
+    author: str,
+    limit: int,
+    fetcher: Fetcher,
+) -> list[BibliographyCandidate]:
+    params = {"query.title": title, "rows": str(limit)}
+    if author:
+        params["query.author"] = author
+    url = f"https://api.crossref.org/works?{urlencode(params)}"
+    payload = fetcher(url)
+    items = payload.get("message", {}).get("items", [])
+    candidates = []
+    for item in items[:limit]:
+        updates = _updates_from_crossref(item, str(item.get("DOI", "")), url)
+        candidates.append(_candidate_from_updates("crossref", updates))
+    return candidates
+
+
+def _search_openlibrary_candidates(
+    title: str,
+    author: str,
+    limit: int,
+    fetcher: Fetcher,
+) -> list[BibliographyCandidate]:
+    params = {"title": title, "limit": str(limit)}
+    if author:
+        params["author"] = author
+    url = f"https://openlibrary.org/search.json?{urlencode(params)}"
+    payload = fetcher(url)
+    docs = payload.get("docs", [])
+    candidates = []
+    for doc in docs[:limit]:
+        authors = [
+            BibliographicAuthor.from_string(name)
+            for name in doc.get("author_name", [])[:4]
+        ]
+        candidates.append(
+            BibliographyCandidate(
+                source="open_library",
+                title=str(doc.get("title", "")).strip(),
+                authors=authors,
+                year=str(doc.get("first_publish_year", "")).strip(),
+                item_type="book",
+                isbn=_first(doc.get("isbn")),
+                publisher=_first(doc.get("publisher")),
+                url=f"https://openlibrary.org{doc.get('key', '')}" if doc.get("key") else "",
+                confidence="medium",
+            )
+        )
+    return candidates
+
+
+def _candidate_from_updates(source: str, updates: dict[str, Any]) -> BibliographyCandidate:
+    return BibliographyCandidate(
+        source=source,
+        title=str(updates.get("title", "")).strip(),
+        authors=updates.get("authors", []),
+        year=str(updates.get("year", "")).strip(),
+        item_type=str(updates.get("item_type", "generic")).strip() or "generic",
+        doi=str(updates.get("doi", "")).strip(),
+        isbn=str(updates.get("isbn", "")).strip(),
+        publisher=str(updates.get("publisher", "")).strip(),
+        journal=str(updates.get("journal", "")).strip(),
+        url=str(updates.get("url", "")).strip(),
+        confidence="medium",
+    )
+
+
+def _store_candidates(
+    project_name: str,
+    document_id: str,
+    projects_root: Path,
+    candidates: list[BibliographyCandidate],
+) -> None:
+    existing = show_bibliography_record(project_name, document_id, projects_root)
+    set_bibliography_record(
+        project_name,
+        document_id,
+        projects_root,
+        metadata_candidates=[candidate.to_dict() for candidate in candidates],
+        metadata_status=existing.metadata_status,
+    )
+
+
+def _rank_candidates(
+    candidates: list[BibliographyCandidate],
+    title: str,
+    author: str,
+) -> list[BibliographyCandidate]:
+    return sorted(
+        candidates,
+        key=lambda candidate: _candidate_score(candidate, title, author),
+        reverse=True,
+    )
+
+
+def _candidate_score(candidate: BibliographyCandidate, title: str, author: str) -> float:
+    query_title = _normalize_text(title)
+    candidate_title = _normalize_text(candidate.title)
+    score = 0.0
+    if query_title and candidate_title == query_title:
+        score += 2.0
+    query_tokens = set(query_title.split())
+    candidate_tokens = set(candidate_title.split())
+    if query_tokens:
+        score += len(query_tokens & candidate_tokens) / len(query_tokens)
+    query_author = _normalize_text(author)
+    candidate_authors = _normalize_text(
+        " ".join(
+            " ".join(part for part in [candidate_author.given, candidate_author.family] if part)
+            for candidate_author in candidate.authors
+        )
+    )
+    if query_author and query_author in candidate_authors:
+        score += 1.0
+    if candidate.isbn:
+        score += 0.5
+    if candidate.doi:
+        score += 0.3
+    if candidate.source == "open_library":
+        score += 0.2
+    return score
+
+
+def _normalize_text(value: str) -> str:
+    return " ".join(
+        "".join(character.lower() if character.isalnum() else " " for character in value).split()
+    )
+
+
+def _first_author_name(record: BibliographicRecord) -> str:
+    if not record.authors:
+        return ""
+    author = record.authors[0]
+    return " ".join(part for part in [author.given, author.family] if part)
 
 
 def _fetch_json(url: str) -> dict[str, Any]:

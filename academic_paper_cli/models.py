@@ -304,6 +304,7 @@ class BibliographicRecord:
     metadata_source_url: str = ""
     metadata_confidence: str = ""
     metadata_enriched_at: str = ""
+    metadata_candidates: list[dict[str, Any]] = field(default_factory=list)
     notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -329,6 +330,7 @@ class BibliographicRecord:
             "metadata_source_url": self.metadata_source_url,
             "metadata_confidence": self.metadata_confidence,
             "metadata_enriched_at": self.metadata_enriched_at,
+            "metadata_candidates": self.metadata_candidates,
             "notes": self.notes,
         }
 
@@ -362,6 +364,11 @@ class BibliographicRecord:
             metadata_source_url=str(payload.get("metadata_source_url", "")).strip(),
             metadata_confidence=str(payload.get("metadata_confidence", "")).strip(),
             metadata_enriched_at=str(payload.get("metadata_enriched_at", "")).strip(),
+            metadata_candidates=[
+                candidate
+                for candidate in payload.get("metadata_candidates", [])
+                if isinstance(candidate, dict)
+            ],
             notes=str(payload.get("notes", "")).strip(),
         )
 
@@ -407,3 +414,49 @@ class BulkBibliographyEnrichmentResult:
     @property
     def failed_count(self) -> int:
         return len(self.failed)
+
+
+@dataclass(frozen=True)
+class BibliographyCandidate:
+    """Candidate bibliographic match from an external search source."""
+
+    source: str
+    title: str
+    authors: list[BibliographicAuthor] = field(default_factory=list)
+    year: str = ""
+    item_type: str = "generic"
+    doi: str = ""
+    isbn: str = ""
+    publisher: str = ""
+    journal: str = ""
+    url: str = ""
+    confidence: str = "medium"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "title": self.title,
+            "authors": [author.to_dict() for author in self.authors],
+            "year": self.year,
+            "item_type": self.item_type,
+            "doi": self.doi,
+            "isbn": self.isbn,
+            "publisher": self.publisher,
+            "journal": self.journal,
+            "url": self.url,
+            "confidence": self.confidence,
+        }
+
+
+@dataclass(frozen=True)
+class BibliographyIdentifierDiagnostic:
+    """Diagnostic row for records without usable identifier enrichment."""
+
+    document_id: str
+    original_filename: str
+    title: str
+    year: str
+    doi: str
+    isbn: str
+    status: str
+    suggestion: str

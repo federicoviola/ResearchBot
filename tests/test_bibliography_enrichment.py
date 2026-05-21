@@ -4,8 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from academic_paper_cli.bibliography_enrichment import enrich_bibliography_record
+from academic_paper_cli.bibliography_enrichment import diagnose_missing_identifiers
 from academic_paper_cli.bibliography_enrichment import enrich_all_bibliography_records
+from academic_paper_cli.bibliography_enrichment import enrich_bibliography_record
+from academic_paper_cli.bibliography_enrichment import search_bibliography_candidates
 from academic_paper_cli.bibliography_manager import init_bibliography
 from academic_paper_cli.bibliography_manager import set_bibliography_record
 from academic_paper_cli.cli import main
@@ -148,6 +150,54 @@ class BibliographyEnrichmentTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
 
+    def test_diagnose_missing_identifiers_reports_records_without_doi_or_isbn(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+
+            diagnostics = diagnose_missing_identifiers("paper", projects_root)
+
+            self.assertEqual(len(diagnostics), 1)
+            self.assertEqual(diagnostics[0].document_id, "doc_0001")
+            self.assertIn("Add title", diagnostics[0].suggestion)
+
+    def test_search_bibliography_candidates_stores_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                title="Autonomy and Institutions",
+                authors=[],
+            )
+
+            candidates = search_bibliography_candidates(
+                "paper",
+                "doc_0001",
+                projects_root,
+                fetcher=_candidate_fetcher,
+            )
+
+            self.assertEqual(len(candidates), 2)
+            self.assertEqual(candidates[0].source, "open_library")
+            self.assertEqual(candidates[1].source, "crossref")
+
+    def test_cli_biblio_missing_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+
+            exit_code = main(
+                [
+                    "biblio-missing-identifiers",
+                    "--project",
+                    "paper",
+                    "--projects-root",
+                    str(projects_root),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+
 
 def _project_with_bibliography(root: Path) -> Path:
     projects_root = root / "projects"
@@ -210,6 +260,36 @@ def _mixed_fetcher(url: str):
     if "crossref" in url:
         return _crossref_fetcher(url)
     return _openlibrary_fetcher(url)
+
+
+def _candidate_fetcher(url: str):
+    if "crossref" in url:
+        return {
+            "message": {
+                "items": [
+                    {
+                        "type": "journal-article",
+                        "title": ["Autonomy and Institutions"],
+                        "author": [{"family": "Viola", "given": "Federico"}],
+                        "issued": {"date-parts": [[2021]]},
+                        "container-title": ["Journal of Social Theory"],
+                        "DOI": "10.1234/example",
+                    }
+                ]
+            }
+        }
+    return {
+        "docs": [
+            {
+                "title": "Autonomy and Institutions",
+                "author_name": ["Federico Viola"],
+                "first_publish_year": 2021,
+                "isbn": ["9781234567890"],
+                "publisher": ["Example Press"],
+                "key": "/works/OL1W",
+            }
+        ]
+    }
 
 
 if __name__ == "__main__":

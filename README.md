@@ -207,6 +207,33 @@ Bulk enrich all records that already contain DOI or ISBN metadata:
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 ```
 
+Show records that still do not have DOI or ISBN:
+
+```bash
+python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
+```
+
+Search metadata candidates by title/author when no DOI or ISBN was detected:
+
+```bash
+python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0008
+```
+
+If the record has no usable title yet, pass a title manually:
+
+```bash
+python3 main.py biblio-search \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0008 \
+  --title "Philosophy, Politics, Autonomy" \
+  --author "Castoriadis" \
+  --limit 5
+```
+
+Candidate search does not overwrite the bibliographic record. It stores the
+candidate list inside the document YAML under `metadata_candidates` so you can
+review it before curating the final citation metadata.
+
 By default, enriched records remain `needs_review`. Use `--auto-verify` only when
 you explicitly trust the matched external metadata:
 
