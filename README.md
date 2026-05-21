@@ -1,0 +1,98 @@
+# Academic Paper CLI
+
+CLI-first MVP for an AI-assisted academic paper production system based on a closed bibliographic dataset.
+
+Current implementation: Module 1 only.
+
+## Requirements
+
+- Python 3.11 or newer
+- `pip`
+
+This workspace currently uses `python3`. If your machine maps `python` to Python 3, you can use `python` instead.
+
+## Create a Python Environment
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+```
+
+When the environment is active, your shell prompt usually shows `(.venv)`.
+
+To leave the environment:
+
+```bash
+deactivate
+```
+
+To reactivate it later:
+
+```bash
+source .venv/bin/activate
+```
+
+## Run Tests
+
+```bash
+python3 -m unittest
+```
+
+## Module 1 Usage
+
+Create a paper project:
+
+```bash
+python3 main.py init-project --name autonomy_blockchain_paper
+```
+
+Check project status:
+
+```bash
+python3 main.py status --project autonomy_blockchain_paper
+```
+
+The command creates:
+
+```text
+projects/autonomy_blockchain_paper/
+├── config/
+├── dataset/
+├── outputs/
+└── state/
+```
+
+Module 1 does not ingest PDFs, build indexes, query an LLM, or generate outlines yet.
+
+## GitHub Workflow
+
+We publish one functional prototype per module:
+
+1. Implement the module.
+2. Run automated tests.
+3. Run a manual CLI smoke test.
+4. Commit the module.
+5. Push to GitHub.
+
+See `docs/github_workflow.md` for the full checklist and first-publish commands.
+
+## Troubleshooting
+
+If `python3` is not available, try:
+
+```bash
+python --version
+```
+
+If dependencies are missing, make sure the virtual environment is active and reinstall:
+
+```bash
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+See `docs/architecture.md` for the full architecture and module roadmap.
