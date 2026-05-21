@@ -31,6 +31,11 @@ from academic_paper_cli.dataset_manager import (
     add_pdfs,
     list_documents,
 )
+from academic_paper_cli.index_builder import (
+    IndexBuilderError,
+    build_index,
+    get_index_status,
+)
 from academic_paper_cli.pdf_processor import PdfProcessorError, ingest_project
 from academic_paper_cli.project_manager import (
     ProjectManagerError,
@@ -333,6 +338,54 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    build_index_parser = subparsers.add_parser(
+        "build-index",
+        help="Chunk extracted texts and build the local retrieval index.",
+    )
+    build_index_parser.add_argument("--project", required=True, help="Project folder name.")
+    build_index_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild an existing index.",
+    )
+    build_index_parser.add_argument(
+        "--chunk-size",
+        type=int,
+        help="Chunk size in words. Defaults to config/project.yaml retrieval.chunk_size.",
+    )
+    build_index_parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        help="Chunk overlap in words. Defaults to config/project.yaml retrieval.chunk_overlap.",
+    )
+    build_index_parser.add_argument(
+        "--embedding-backend",
+        default="hashing",
+        help="Embedding backend. Currently only 'hashing' is implemented.",
+    )
+    build_index_parser.add_argument(
+        "--embedding-dimensions",
+        type=int,
+        default=256,
+        help="Embedding vector dimensions for the hashing backend.",
+    )
+    build_index_parser.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    index_status = subparsers.add_parser(
+        "index-status",
+        help="Show local retrieval index status.",
+    )
+    index_status.add_argument("--project", required=True, help="Project folder name.")
+    index_status.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -575,12 +628,38 @@ def main(argv: list[str] | None = None) -> int:
             _render_bibliography([result.record], title=f"Bibliographic Record: {args.doc_id}")
             return 0
 
+        if args.command == "build-index":
+            result = build_index(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+                force=args.force,
+                chunk_size=args.chunk_size,
+                chunk_overlap=args.chunk_overlap,
+                embedding_backend=args.embedding_backend,
+                embedding_dimensions=args.embedding_dimensions,
+            )
+            console.print(
+                "[green]Built index:[/green] "
+                f"{result.document_count} documents, {result.chunk_count} chunks"
+            )
+            _render_index_build_result(result)
+            return 0
+
+        if args.command == "index-status":
+            status = get_index_status(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+            )
+            _render_index_status(status)
+            return 0 if status.status == "built" else 2
+
     except (
         ProjectManagerError,
         DatasetManagerError,
         PdfProcessorError,
         BibliographyManagerError,
         BibliographyEnrichmentError,
+        IndexBuilderError,
     ) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
@@ -775,6 +854,43 @@ def _render_enrichment_results(results, title: str) -> None:
             result.record.citation_key,
             result.record.title,
         )
+
+    console.print(table)
+
+
+def _render_index_build_result(result) -> None:
+    table = Table(title=f"Index Build: {result.project_name}")
+    table.add_column("Field", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Documents", str(result.document_count))
+    table.add_row("Chunks", str(result.chunk_count))
+    table.add_row("Embedding backend", result.embedding_backend)
+    table.add_row("Embedding dimensions", str(result.embedding_dimensions))
+    table.add_row("Chunks path", result.chunks_path)
+    table.add_row("Embeddings path", result.embeddings_path)
+    table.add_row("State path", result.status_path)
+    table.add_row("Built at", result.built_at)
+
+    console.print(table)
+
+
+def _render_index_status(status) -> None:
+    state_color = "green" if status.status == "built" else "yellow"
+    table = Table(title=f"Index Status: {status.project_name}")
+    table.add_column("Field", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Status", f"[{state_color}]{status.status}[/{state_color}]")
+    table.add_row("Documents", str(status.document_count))
+    table.add_row("Chunks", str(status.chunk_count))
+    table.add_row("Embedding backend", status.embedding_backend)
+    table.add_row("Embedding dimensions", str(status.embedding_dimensions))
+    table.add_row("Chunks path", status.chunks_path)
+    table.add_row("Embeddings path", status.embeddings_path)
+    table.add_row("Built at", status.built_at)
+    if status.message:
+        table.add_row("Message", status.message)
 
     console.print(table)
 

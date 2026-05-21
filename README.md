@@ -9,6 +9,7 @@ Current implementation:
 - Module 3: PDF Processor
 - Module 3.5: Bibliographic Metadata Manager
 - Module 3.6: Bibliographic Metadata Enrichment
+- Module 4: Index Builder
 
 ## Requirements
 
@@ -268,7 +269,41 @@ python3 main.py biblio-enrich \
 External lookup is only used for bibliographic metadata. It is not used as
 evidence for paper claims or LLM-generated academic content.
 
-The app does not build indexes, query an LLM, or generate outlines yet.
+## Module 4 Usage
+
+Build a local retrieval index from extracted texts:
+
+```bash
+python3 main.py build-index --project autonomy_blockchain_paper
+```
+
+Rebuild an existing index:
+
+```bash
+python3 main.py build-index --project autonomy_blockchain_paper --force
+```
+
+Check index status:
+
+```bash
+python3 main.py index-status --project autonomy_blockchain_paper
+```
+
+Module 4 reads `dataset/txt/*.txt`, splits documents into overlapping chunks,
+adds bibliographic metadata from `dataset/bibliography`, and writes:
+
+```text
+dataset/index/chunks.jsonl
+dataset/index/embeddings.jsonl
+state/index_state.json
+```
+
+The current MVP uses a deterministic local `hashing` embedding backend so the
+index can be built without external services or heavyweight model downloads.
+Later modules can replace the embedding backend while keeping the same chunk
+metadata contract.
+
+The app does not query an LLM or generate outlines yet.
 
 ## GitHub Workflow
 

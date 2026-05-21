@@ -255,6 +255,85 @@ class IngestionResult:
 
 
 @dataclass(frozen=True)
+class ChunkRecord:
+    """Searchable text unit derived from an ingested document."""
+
+    chunk_id: str
+    document_id: str
+    chunk_index: int
+    text: str
+    start_word: int
+    end_word: int
+    word_count: int
+    title: str = ""
+    authors: list[str] = field(default_factory=list)
+    year: str = ""
+    citation_key: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chunk_id": self.chunk_id,
+            "document_id": self.document_id,
+            "chunk_index": self.chunk_index,
+            "text": self.text,
+            "start_word": self.start_word,
+            "end_word": self.end_word,
+            "word_count": self.word_count,
+            "title": self.title,
+            "authors": self.authors,
+            "year": self.year,
+            "citation_key": self.citation_key,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ChunkRecord":
+        return cls(
+            chunk_id=str(payload.get("chunk_id", "")).strip(),
+            document_id=str(payload.get("document_id", "")).strip(),
+            chunk_index=int(payload.get("chunk_index", 0)),
+            text=str(payload.get("text", "")),
+            start_word=int(payload.get("start_word", 0)),
+            end_word=int(payload.get("end_word", 0)),
+            word_count=int(payload.get("word_count", 0)),
+            title=str(payload.get("title", "")).strip(),
+            authors=[str(author) for author in payload.get("authors", [])],
+            year=str(payload.get("year", "")).strip(),
+            citation_key=str(payload.get("citation_key", "")).strip(),
+        )
+
+
+@dataclass(frozen=True)
+class IndexBuildResult:
+    """Summary of a completed index build."""
+
+    project_name: str
+    document_count: int
+    chunk_count: int
+    embedding_backend: str
+    embedding_dimensions: int
+    chunks_path: str
+    embeddings_path: str
+    status_path: str
+    built_at: str
+
+
+@dataclass(frozen=True)
+class IndexStatus:
+    """Current state of a project's local search index."""
+
+    project_name: str
+    status: str
+    document_count: int = 0
+    chunk_count: int = 0
+    embedding_backend: str = ""
+    embedding_dimensions: int = 0
+    chunks_path: str = ""
+    embeddings_path: str = ""
+    built_at: str = ""
+    message: str = ""
+
+
+@dataclass(frozen=True)
 class BibliographicAuthor:
     """Structured author name for academic citations."""
 

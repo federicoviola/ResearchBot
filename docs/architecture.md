@@ -123,13 +123,13 @@ python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
 python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0001 --title "..." --author "..."
 python3 main.py biblio-accept-candidate --project autonomy_blockchain_paper --doc-id doc_0001 --candidate 1 --verified
+python3 main.py build-index --project autonomy_blockchain_paper
+python3 main.py index-status --project autonomy_blockchain_paper
 ```
 
 Designed for later modules:
 
 ```bash
-python3 main.py build-index --project autonomy_blockchain_paper
-python3 main.py index-status --project autonomy_blockchain_paper
 python3 main.py query --project autonomy_blockchain_paper "What does the dataset say about autonomy?"
 python3 main.py outline --project autonomy_blockchain_paper --skill outline_design
 python3 main.py list-skills --project autonomy_blockchain_paper
@@ -145,7 +145,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
 | 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, search candidates, and apply reviewed candidates | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search`, `biblio-accept-candidate` | Implemented |
-| 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
+| 4. Index Builder | Chunk text, embed chunks, store local index artifacts | `build-index`, `index-status` | Implemented |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
 
@@ -169,10 +169,12 @@ Implemented dataclass models:
 - `BibliographyEnrichmentResult`: result of external DOI/ISBN enrichment.
 - `BibliographyCandidate`: non-applied candidate metadata from title/author search.
 - `BibliographyIdentifierDiagnostic`: diagnostic row for records without DOI/ISBN.
+- `ChunkRecord`: chunk ID, document ID, word span, text, and bibliographic source metadata.
+- `IndexBuildResult`: summary of a completed local index build.
+- `IndexStatus`: current local index state.
 
 Later modules should add:
 
-- `ChunkRecord`: chunk ID, document ID, page range, text span, index backend ID.
 - `RetrievalResult`: chunk text, score, document metadata, source reference.
 - `LLMRunRecord`: prompt hash, retrieved chunk IDs, provider, model, output path.
 
@@ -221,7 +223,7 @@ The current tests use `unittest` so they run without extra dependencies, and the
 4. Module 3.5: curate bibliographic metadata and export verified records.
 5. Module 3.6: enrich bibliographic metadata from DOI/ISBN sources and search candidates for records without identifiers.
 6. Run tests and manually validate bibliography readiness.
-7. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
+7. Module 4: chunk texts, embed chunks, persist local index artifacts and chunk metadata.
 8. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
 9. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
 
@@ -234,11 +236,12 @@ Implemented module code lives in:
 - `academic_paper_cli/pdf_processor.py`
 - `academic_paper_cli/bibliography_manager.py`
 - `academic_paper_cli/bibliography_enrichment.py`
+- `academic_paper_cli/index_builder.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
 
-No indexing, query, or outline commands are implemented yet.
+Query and outline commands are not implemented yet.
 
 ## 11. Instructions to Run and Test
 
