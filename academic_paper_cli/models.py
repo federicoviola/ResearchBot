@@ -386,3 +386,24 @@ class BibliographyEnrichmentResult:
     source: str = ""
     source_url: str = ""
     message: str = ""
+
+
+@dataclass(frozen=True)
+class BulkBibliographyEnrichmentResult:
+    """Result of enriching multiple bibliographic records."""
+
+    results: list[BibliographyEnrichmentResult]
+    skipped: list[str] = field(default_factory=list)
+    failed: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def enriched_count(self) -> int:
+        return sum(1 for result in self.results if result.enriched)
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self.skipped)
+
+    @property
+    def failed_count(self) -> int:
+        return len(self.failed)

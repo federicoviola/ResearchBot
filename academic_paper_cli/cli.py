@@ -19,6 +19,7 @@ from academic_paper_cli.bibliography_manager import (
 )
 from academic_paper_cli.bibliography_enrichment import (
     BibliographyEnrichmentError,
+    enrich_all_bibliography_records,
     enrich_bibliography_record,
 )
 from academic_paper_cli.dataset_manager import (
@@ -246,7 +247,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enrich bibliographic metadata from DOI or ISBN lookup.",
     )
     biblio_enrich.add_argument("--project", required=True, help="Project folder name.")
-    biblio_enrich.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_enrich.add_argument("--doc-id", help="Document ID.")
+    biblio_enrich.add_argument(
+        "--all",
+        action="store_true",
+        help="Enrich all records that already contain DOI or ISBN metadata.",
+    )
     biblio_enrich.add_argument("--doi", help="DOI to look up through Crossref/DataCite.")
     biblio_enrich.add_argument("--isbn", help="ISBN to look up through Open Library.")
     biblio_enrich.add_argument(
@@ -426,6 +432,32 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "biblio-enrich":
+            if args.all:
+                result = enrich_all_bibliography_records(
+                    project_name=args.project,
+                    projects_root=Path(args.projects_root),
+                    auto_verify=args.auto_verify,
+                    force=args.force,
+                )
+                console.print(
+                    "[green]Bulk enrichment complete:[/green] "
+                    f"{result.enriched_count} enriched, "
+                    f"{result.skipped_count} skipped, "
+                    f"{result.failed_count} failed"
+                )
+                _render_enrichment_results(result.results, title="Bibliography Enrichment")
+                if result.skipped:
+                    console.print("[yellow]Skipped records without DOI/ISBN:[/yellow]")
+                    for document_id in result.skipped:
+                        console.print(f"  - {document_id}")
+                if result.failed:
+                    console.print("[red]Failed records:[/red]")
+                    for document_id, message in result.failed.items():
+                        console.print(f"  - {document_id}: {message}")
+                return 0 if not result.failed else 2
+
+            if not args.doc_id:
+                raise BibliographyEnrichmentError("--doc-id is required unless --all is used.")
             result = enrich_bibliography_record(
                 project_name=args.project,
                 document_id=args.doc_id,
@@ -616,6 +648,31 @@ def _render_bibliography_validation(results, title: str) -> None:
             result.metadata_status,
             "yes" if result.valid else "no",
             ", ".join(result.missing_fields),
+        )
+
+    console.print(table)
+
+
+def _render_enrichment_results(results, title: str) -> None:
+    if not results:
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Source")
+    table.add_column("Status")
+    table.add_column("Year")
+    table.add_column("Citation Key")
+    table.add_column("Title")
+
+    for result in results:
+        table.add_row(
+            result.record.document_id,
+            result.source,
+            result.record.metadata_status,
+            result.record.year,
+            result.record.citation_key,
+            result.record.title,
         )
 
     console.print(table)

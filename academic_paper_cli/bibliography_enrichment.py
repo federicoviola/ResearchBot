@@ -17,12 +17,14 @@ from urllib.request import Request, urlopen
 
 from academic_paper_cli.bibliography_manager import (
     BibliographyManagerError,
+    list_bibliography,
     set_bibliography_record,
     show_bibliography_record,
 )
 from academic_paper_cli.models import (
     BibliographicAuthor,
     BibliographicRecord,
+    BulkBibliographyEnrichmentResult,
     BibliographyEnrichmentResult,
 )
 
@@ -74,6 +76,47 @@ def enrich_bibliography_record(
 
     raise BibliographyEnrichmentError(
         "Provide --doi or --isbn, or store one of them in the bibliographic record first."
+    )
+
+
+def enrich_all_bibliography_records(
+    project_name: str,
+    projects_root: Path = Path("projects"),
+    auto_verify: bool = False,
+    force: bool = False,
+    fetcher: Fetcher | None = None,
+) -> BulkBibliographyEnrichmentResult:
+    """Enrich all records that already contain DOI or ISBN metadata."""
+
+    records = list_bibliography(project_name, projects_root)
+    results: list[BibliographyEnrichmentResult] = []
+    skipped: list[str] = []
+    failed: dict[str, str] = {}
+
+    for record in records:
+        if not record.doi and not record.isbn:
+            skipped.append(record.document_id)
+            continue
+        try:
+            results.append(
+                enrich_bibliography_record(
+                    project_name=project_name,
+                    document_id=record.document_id,
+                    projects_root=projects_root,
+                    doi=record.doi or None,
+                    isbn=record.isbn or None,
+                    auto_verify=auto_verify,
+                    force=force,
+                    fetcher=fetcher,
+                )
+            )
+        except Exception as error:
+            failed[record.document_id] = str(error)
+
+    return BulkBibliographyEnrichmentResult(
+        results=results,
+        skipped=skipped,
+        failed=failed,
     )
 
 

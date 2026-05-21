@@ -196,6 +196,12 @@ If a DOI or ISBN is already stored in the bibliographic record, it can be omitte
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001
 ```
 
+Bulk enrich all records that already contain DOI or ISBN metadata:
+
+```bash
+python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
+```
+
 By default, enriched records remain `needs_review`. Use `--auto-verify` only when
 you explicitly trust the matched external metadata:
 

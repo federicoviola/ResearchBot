@@ -119,6 +119,7 @@ python3 main.py biblio-validate --project autonomy_blockchain_paper
 python3 main.py biblio-export --project autonomy_blockchain_paper --format bibtex
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --doi 10.xxxx/example
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --isbn 9780262531559
+python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 ```
 
 Designed for later modules:
@@ -140,7 +141,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 2. Dataset Manager | Copy/register PDFs, bulk add PDFs, avoid duplicates, document IDs | `add-pdf`, `add-pdfs`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
-| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs | `biblio-enrich` | Implemented |
+| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, individually or in bulk | `biblio-enrich` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
@@ -282,6 +283,7 @@ Enrich bibliographic metadata from external identifier APIs:
 ```bash
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --doi 10.xxxx/example
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001 --isbn 9780262531559
+python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 ```
 
 External metadata enrichment is limited to citation metadata and does not expand

@@ -5,7 +5,9 @@ import unittest
 from pathlib import Path
 
 from academic_paper_cli.bibliography_enrichment import enrich_bibliography_record
+from academic_paper_cli.bibliography_enrichment import enrich_all_bibliography_records
 from academic_paper_cli.bibliography_manager import init_bibliography
+from academic_paper_cli.bibliography_manager import set_bibliography_record
 from academic_paper_cli.cli import main
 from academic_paper_cli.dataset_manager import add_pdf
 from academic_paper_cli.project_manager import create_project
@@ -91,6 +93,61 @@ class BibliographyEnrichmentTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 1)
 
+    def test_enrich_all_uses_stored_identifiers_and_skips_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            projects_root = root / "projects"
+            create_project("paper", projects_root)
+            first_pdf = root / "first.pdf"
+            second_pdf = root / "second.pdf"
+            third_pdf = root / "third.pdf"
+            first_pdf.write_bytes(b"%PDF-1.4\nfirst\n%%EOF\n")
+            second_pdf.write_bytes(b"%PDF-1.4\nsecond\n%%EOF\n")
+            third_pdf.write_bytes(b"%PDF-1.4\nthird\n%%EOF\n")
+            add_pdf("paper", first_pdf, projects_root)
+            add_pdf("paper", second_pdf, projects_root)
+            add_pdf("paper", third_pdf, projects_root)
+            init_bibliography("paper", projects_root)
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                doi="10.1234/example",
+            )
+            set_bibliography_record(
+                "paper",
+                "doc_0002",
+                projects_root,
+                isbn="9780262531559",
+            )
+
+            result = enrich_all_bibliography_records(
+                "paper",
+                projects_root,
+                fetcher=_mixed_fetcher,
+            )
+
+            self.assertEqual(result.enriched_count, 2)
+            self.assertEqual(result.skipped, ["doc_0003"])
+            self.assertEqual(result.failed_count, 0)
+
+    def test_cli_biblio_enrich_all_requires_no_doc_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+
+            exit_code = main(
+                [
+                    "biblio-enrich",
+                    "--project",
+                    "paper",
+                    "--all",
+                    "--projects-root",
+                    str(projects_root),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+
 
 def _project_with_bibliography(root: Path) -> Path:
     projects_root = root / "projects"
@@ -147,6 +204,12 @@ def _openlibrary_fetcher(url: str):
         "publishers": ["MIT Press"],
         "publish_places": ["Cambridge, MA"],
     }
+
+
+def _mixed_fetcher(url: str):
+    if "crossref" in url:
+        return _crossref_fetcher(url)
+    return _openlibrary_fetcher(url)
 
 
 if __name__ == "__main__":
