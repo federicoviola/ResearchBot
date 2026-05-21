@@ -49,7 +49,13 @@ def init_bibliography(
     for document in list_documents(project_name, projects_root):
         record_path = _record_path(paths, document.document_id)
         if record_path.exists():
-            records.append(_load_record(record_path))
+            record = _merge_missing_ingested_identifiers(
+                _load_record(record_path),
+                paths,
+                document.document_id,
+            )
+            _write_yaml(record_path, record.to_dict())
+            records.append(record)
             continue
 
         record = _template_record(paths, document)
@@ -202,8 +208,8 @@ def _template_record(paths: ProjectPaths, document: DocumentRecord) -> Bibliogra
     authors = _authors_from_pdf_metadata(str(pdf_metadata.get("author", "")).strip())
     year = _year_from_pdf_metadata(pdf_metadata)
     identifiers = extracted.get("identifiers", {}) if extracted else {}
-    doi = _first_identifier(identifiers.get("doi", []))
-    isbn = _first_identifier(identifiers.get("isbn", []))
+    doi = _first_identifier(identifiers.get("doi", []), "doi")
+    isbn = _first_identifier(identifiers.get("isbn", []), "isbn")
     citation_key = _citation_key(
         [author.to_dict() for author in authors],
         year,
@@ -227,6 +233,25 @@ def _template_record(paths: ProjectPaths, document: DocumentRecord) -> Bibliogra
     )
 
 
+def _merge_missing_ingested_identifiers(
+    record: BibliographicRecord,
+    paths: ProjectPaths,
+    document_id: str,
+) -> BibliographicRecord:
+    extracted = _load_extracted_metadata(paths, document_id)
+    identifiers = extracted.get("identifiers", {}) if extracted else {}
+    payload = record.to_dict()
+    payload["doi"] = _clean_doi(record.doi) or _first_identifier(
+        identifiers.get("doi", []),
+        "doi",
+    )
+    payload["isbn"] = _clean_isbn(record.isbn) or _first_identifier(
+        identifiers.get("isbn", []),
+        "isbn",
+    )
+    return BibliographicRecord.from_dict(payload)
+
+
 def _load_extracted_metadata(paths: ProjectPaths, document_id: str) -> dict[str, Any]:
     path = paths.dataset_dir / "metadata" / f"{document_id}.json"
     if not path.is_file():
@@ -238,10 +263,25 @@ def _load_extracted_metadata(paths: ProjectPaths, document_id: str) -> dict[str,
     return payload if isinstance(payload, dict) else {}
 
 
-def _first_identifier(values: Any) -> str:
+def _first_identifier(values: Any, identifier_type: str) -> str:
     if isinstance(values, list) and values:
-        return str(values[0]).strip()
+        value = str(values[0]).strip()
+        if identifier_type == "doi":
+            return _clean_doi(value)
+        if identifier_type == "isbn":
+            return _clean_isbn(value)
     return ""
+
+
+def _clean_doi(value: str) -> str:
+    cleaned = str(value or "")
+    cleaned = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", cleaned)
+    cleaned = re.sub(r"\s+", "", cleaned)
+    return cleaned.strip().rstrip(".,;:)]}")
+
+
+def _clean_isbn(value: str) -> str:
+    return re.sub(r"[^0-9Xx]", "", str(value or ""))
 
 
 def _authors_from_pdf_metadata(author_text: str) -> list[BibliographicAuthor]:

@@ -70,6 +70,56 @@ class BibliographyManagerTests(unittest.TestCase):
             self.assertEqual(payload["doi"], "10.1234/example.test")
             self.assertEqual(payload["isbn"], "9780262531559")
 
+    def test_init_bibliography_refreshes_missing_identifiers_in_existing_records(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            projects_root = root / "projects"
+            source_pdf = root / "source.pdf"
+            _write_pdf(source_pdf, "DOI 10.1234/example.test")
+            create_project("paper", projects_root)
+            add_pdf("paper", source_pdf, projects_root)
+            init_bibliography("paper", projects_root)
+            ingest_project("paper", projects_root)
+
+            init_bibliography("paper", projects_root)
+
+            record_path = (
+                projects_root
+                / "paper"
+                / "dataset"
+                / "bibliography"
+                / "doc_0001.yaml"
+            )
+            payload = yaml.safe_load(record_path.read_text())
+            self.assertEqual(payload["doi"], "10.1234/example.test")
+
+    def test_init_bibliography_cleans_existing_identifier_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            projects_root = root / "projects"
+            source_pdf = root / "source.pdf"
+            source_pdf.write_bytes(b"%PDF-1.4\nbibliography fixture\n%%EOF\n")
+            create_project("paper", projects_root)
+            add_pdf("paper", source_pdf, projects_root)
+            init_bibliography("paper", projects_root)
+            record_path = (
+                projects_root
+                / "paper"
+                / "dataset"
+                / "bibliography"
+                / "doc_0001.yaml"
+            )
+            payload = yaml.safe_load(record_path.read_text())
+            payload["doi"] = "10.4324/\u200b9781003039723"
+            payload["isbn"] = "978-1-003-03972-3"
+            record_path.write_text(yaml.safe_dump(payload, sort_keys=False))
+
+            init_bibliography("paper", projects_root)
+
+            cleaned = yaml.safe_load(record_path.read_text())
+            self.assertEqual(cleaned["doi"], "10.4324/9781003039723")
+            self.assertEqual(cleaned["isbn"], "9781003039723")
+
     def test_set_validate_and_export_bibliography(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
