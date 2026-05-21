@@ -175,10 +175,9 @@ def search_bibliography_candidates(
             "Provide --title or set a title in the bibliographic record first."
         )
     query_author = (author or _first_author_name(record)).strip()
-    candidates = [
-        *_search_crossref_candidates(query_title, query_author, limit, fetch),
-        *_search_openlibrary_candidates(query_title, query_author, limit, fetch),
-    ]
+    candidates = _search_candidate_sources(query_title, query_author, limit, fetch)
+    if not candidates and query_author:
+        candidates = _search_candidate_sources(query_title, "", limit, fetch)
     candidates = _rank_candidates(candidates, query_title, query_author)[:limit]
     _store_candidates(project_name, document_id, projects_root, candidates)
     return candidates
@@ -430,6 +429,18 @@ def _search_crossref_candidates(
         updates = _updates_from_crossref(item, str(item.get("DOI", "")), url)
         candidates.append(_candidate_from_updates("crossref", updates))
     return candidates
+
+
+def _search_candidate_sources(
+    title: str,
+    author: str,
+    limit: int,
+    fetcher: Fetcher,
+) -> list[BibliographyCandidate]:
+    return [
+        *_search_crossref_candidates(title, author, limit, fetcher),
+        *_search_openlibrary_candidates(title, author, limit, fetcher),
+    ]
 
 
 def _search_openlibrary_candidates(

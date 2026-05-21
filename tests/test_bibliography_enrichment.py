@@ -11,6 +11,7 @@ from academic_paper_cli.bibliography_enrichment import search_bibliography_candi
 from academic_paper_cli.bibliography_manager import init_bibliography
 from academic_paper_cli.bibliography_manager import set_bibliography_record
 from academic_paper_cli.cli import main
+from academic_paper_cli.models import BibliographicAuthor
 from academic_paper_cli.dataset_manager import add_pdf
 from academic_paper_cli.project_manager import create_project
 
@@ -182,6 +183,28 @@ class BibliographyEnrichmentTests(unittest.TestCase):
             self.assertEqual(candidates[0].source, "open_library")
             self.assertEqual(candidates[1].source, "crossref")
 
+    def test_search_bibliography_candidates_retries_without_bad_author(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                title="Philosophy, Politics, Autonomy",
+                authors=[BibliographicAuthor.from_string("XOLOTL")],
+            )
+
+            candidates = search_bibliography_candidates(
+                "paper",
+                "doc_0001",
+                projects_root,
+                fetcher=_author_sensitive_candidate_fetcher,
+            )
+
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].source, "open_library")
+            self.assertEqual(candidates[0].title, "Philosophy, politics, autonomy")
+
     def test_cli_biblio_missing_identifiers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             projects_root = _project_with_bibliography(Path(temporary_directory))
@@ -286,6 +309,25 @@ def _candidate_fetcher(url: str):
                 "first_publish_year": 2021,
                 "isbn": ["9781234567890"],
                 "publisher": ["Example Press"],
+                "key": "/works/OL1W",
+            }
+        ]
+    }
+
+
+def _author_sensitive_candidate_fetcher(url: str):
+    if "author=XOLOTL" in url:
+        if "crossref" in url:
+            return {"message": {"items": []}}
+        return {"docs": []}
+    if "crossref" in url:
+        return {"message": {"items": []}}
+    return {
+        "docs": [
+            {
+                "title": "Philosophy, politics, autonomy",
+                "author_name": ["Cornelius Castoriadis"],
+                "first_publish_year": 1991,
                 "key": "/works/OL1W",
             }
         ]
