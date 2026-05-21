@@ -135,7 +135,7 @@ def diagnose_missing_identifiers(
     for document_id, record in sorted(records.items()):
         document = documents.get(document_id)
         has_identifier = bool(record.doi or record.isbn)
-        if has_identifier:
+        if has_identifier or record.metadata_status == "verified":
             continue
         title = record.title
         suggestion = "Run biblio-search with the detected title or add DOI/ISBN manually."

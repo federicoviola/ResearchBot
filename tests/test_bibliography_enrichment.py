@@ -162,6 +162,23 @@ class BibliographyEnrichmentTests(unittest.TestCase):
             self.assertEqual(diagnostics[0].document_id, "doc_0001")
             self.assertIn("Add title", diagnostics[0].suggestion)
 
+    def test_diagnose_missing_identifiers_ignores_verified_records(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                title="Philosophy, Politics, Autonomy",
+                authors=[BibliographicAuthor.from_string("Castoriadis, Cornelius")],
+                year="1991",
+                verified=True,
+            )
+
+            diagnostics = diagnose_missing_identifiers("paper", projects_root)
+
+            self.assertEqual(diagnostics, [])
+
     def test_search_bibliography_candidates_stores_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             projects_root = _project_with_bibliography(Path(temporary_directory))
