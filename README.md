@@ -6,6 +6,7 @@ Current implementation:
 
 - Module 1: Project Manager
 - Module 2: Dataset Manager
+- Module 3: PDF Processor
 
 ## Requirements
 
@@ -86,7 +87,24 @@ python3 main.py list-docs --project autonomy_blockchain_paper
 Module 2 copies PDFs into `dataset/pdf`, assigns stable document IDs, and avoids
 duplicates using SHA-256 checksums.
 
-The app does not extract text, build indexes, query an LLM, or generate outlines yet.
+## Module 3 Usage
+
+Extract text and metadata from registered PDFs:
+
+```bash
+python3 main.py ingest --project autonomy_blockchain_paper
+```
+
+Re-extract PDFs that were already ingested:
+
+```bash
+python3 main.py ingest --project autonomy_blockchain_paper --force
+```
+
+Module 3 reads PDFs from `dataset/pdf`, writes extracted text to `dataset/txt`,
+writes metadata JSON to `dataset/metadata`, and updates `state/ingestion_state.json`.
+
+The app does not build indexes, query an LLM, or generate outlines yet.
 
 ## GitHub Workflow
 

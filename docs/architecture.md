@@ -26,6 +26,7 @@ academic-paper-cli/
 │   ├── cli.py
 │   ├── models.py
 │   ├── dataset_manager.py
+│   ├── pdf_processor.py
 │   └── project_manager.py
 ├── docs/
 │   └── architecture.md
@@ -103,12 +104,12 @@ python3 main.py init-project --name autonomy_blockchain_paper
 python3 main.py status --project autonomy_blockchain_paper
 python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
 python3 main.py list-docs --project autonomy_blockchain_paper
+python3 main.py ingest --project autonomy_blockchain_paper
 ```
 
 Designed for later modules:
 
 ```bash
-python3 main.py ingest --project autonomy_blockchain_paper
 python3 main.py build-index --project autonomy_blockchain_paper
 python3 main.py index-status --project autonomy_blockchain_paper
 python3 main.py query --project autonomy_blockchain_paper "What does the dataset say about autonomy?"
@@ -123,7 +124,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 |---|---|---|---|
 | 1. Project Manager | Create folders, defaults, state files, validate structure, status | `init-project`, `status` | Implemented |
 | 2. Dataset Manager | Copy/register PDFs, avoid duplicates, document IDs | `add-pdf`, `list-docs` | Implemented |
-| 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Designed only |
+| 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
@@ -140,10 +141,10 @@ Implemented dataclass models:
 - `ProjectStatus`
 
 - `DocumentRecord`: document ID, original source path, stored PDF path, checksum, registration date.
+- `IngestionResult`: document ID, extraction status, text path, metadata path, page and word counts.
 
 Later modules should add:
 
-- `ExtractedDocument`: document ID, text path, metadata path, extraction status.
 - `ChunkRecord`: chunk ID, document ID, page range, text span, index backend ID.
 - `RetrievalResult`: chunk text, score, document metadata, source reference.
 - `LLMRunRecord`: prompt hash, retrieved chunk IDs, provider, model, output path.
@@ -187,8 +188,8 @@ The current tests use `unittest` so they run without extra dependencies, and the
 
 1. Module 1: project manager, default configuration, validation, status command.
 2. Module 2: add PDF registration with SHA-256 duplicate checks in `ingestion_state.json`.
-3. Run tests and manually add/list a PDF.
-4. Module 3: extract text/metadata with PyMuPDF and update `ingestion_state.json`.
+3. Module 3: extract text/metadata with PyMuPDF and update `ingestion_state.json`.
+4. Run tests and manually ingest a registered PDF.
 5. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
 6. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
 7. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
@@ -199,11 +200,12 @@ Implemented module code lives in:
 
 - `academic_paper_cli/project_manager.py`
 - `academic_paper_cli/dataset_manager.py`
+- `academic_paper_cli/pdf_processor.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
 
-No ingestion, indexing, query, or outline commands are implemented yet.
+No indexing, query, or outline commands are implemented yet.
 
 ## 11. Instructions to Run and Test
 
@@ -230,6 +232,12 @@ Add and list a PDF:
 ```bash
 python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
 python3 main.py list-docs --project autonomy_blockchain_paper
+```
+
+Ingest registered PDFs:
+
+```bash
+python3 main.py ingest --project autonomy_blockchain_paper
 ```
 
 If your shell has `python` mapped to Python 3, the same commands work with `python main.py ...`.

@@ -216,3 +216,18 @@ class AddPdfResult:
     record: DocumentRecord
     added: bool
     duplicate_of: str | None = None
+
+
+@dataclass(frozen=True)
+class IngestionResult:
+    """Result of extracting text and metadata from a registered PDF."""
+
+    document_id: str
+    original_filename: str
+    status: str
+    text_path: str | None
+    metadata_path: str | None
+    page_count: int = 0
+    character_count: int = 0
+    word_count: int = 0
+    error: str | None = None

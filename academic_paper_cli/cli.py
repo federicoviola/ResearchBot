@@ -13,6 +13,7 @@ from academic_paper_cli.dataset_manager import (
     add_pdf,
     list_documents,
 )
+from academic_paper_cli.pdf_processor import PdfProcessorError, ingest_project
 from academic_paper_cli.project_manager import (
     ProjectManagerError,
     create_project,
@@ -42,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser(
         "status",
-        help="Validate project structure and show Module 1 status.",
+        help="Validate project structure and show project status.",
     )
     status.add_argument("--project", required=True, help="Project folder name.")
     status.add_argument(
@@ -72,6 +73,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--projects-root",
         default="projects",
         help="Root folder containing all paper projects.",
+    )
+
+    ingest = subparsers.add_parser(
+        "ingest",
+        help="Extract text and metadata from registered PDFs.",
+    )
+    ingest.add_argument("--project", required=True, help="Project folder name.")
+    ingest.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+    ingest.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-extract PDFs that are already marked as ingested.",
     )
 
     return parser
@@ -126,7 +143,16 @@ def main(argv: list[str] | None = None) -> int:
             _render_documents(documents, title=f"Documents: {args.project}")
             return 0
 
-    except (ProjectManagerError, DatasetManagerError) as error:
+        if args.command == "ingest":
+            results = ingest_project(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+                force=args.force,
+            )
+            _render_ingestion_results(results, title=f"Ingestion: {args.project}")
+            return 0 if all(result.status != "ingestion_failed" for result in results) else 2
+
+    except (ProjectManagerError, DatasetManagerError, PdfProcessorError) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
 
@@ -183,6 +209,34 @@ def _render_documents(documents, title: str) -> None:
             document.status,
             document.sha256[:12],
             document.stored_path,
+        )
+
+    console.print(table)
+
+
+def _render_ingestion_results(results, title: str) -> None:
+    if not results:
+        console.print("[yellow]No registered documents to ingest.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Original File")
+    table.add_column("Status")
+    table.add_column("Pages")
+    table.add_column("Words")
+    table.add_column("Text Path")
+    table.add_column("Error")
+
+    for result in results:
+        table.add_row(
+            result.document_id,
+            result.original_filename,
+            result.status,
+            str(result.page_count),
+            str(result.word_count),
+            result.text_path or "",
+            result.error or "",
         )
 
     console.print(table)
