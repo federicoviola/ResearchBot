@@ -11,6 +11,7 @@ The architecture is intentionally modular:
 - Module 1 creates and validates project structure.
 - Module 2 registers source PDFs.
 - Module 3 extracts text and metadata.
+- Module 3.5 manages curated bibliographic metadata.
 - Module 4 builds a searchable local index.
 - Module 5 performs grounded dataset querying.
 - Module 6 generates grounded outlines.
@@ -25,6 +26,7 @@ academic-paper-cli/
 │   ├── __init__.py
 │   ├── cli.py
 │   ├── models.py
+│   ├── bibliography_manager.py
 │   ├── dataset_manager.py
 │   ├── pdf_processor.py
 │   └── project_manager.py
@@ -43,6 +45,7 @@ academic-paper-cli/
 │       │   ├── pdf/
 │       │   ├── txt/
 │       │   ├── metadata/
+│       │   ├── bibliography/
 │       │   └── index/
 │       ├── outputs/
 │       │   ├── outlines/
@@ -106,6 +109,12 @@ python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/cas
 python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources --recursive
 python3 main.py list-docs --project autonomy_blockchain_paper
 python3 main.py ingest --project autonomy_blockchain_paper
+python3 main.py biblio-init --project autonomy_blockchain_paper
+python3 main.py biblio-list --project autonomy_blockchain_paper
+python3 main.py biblio-show --project autonomy_blockchain_paper --doc-id doc_0001
+python3 main.py biblio-set --project autonomy_blockchain_paper --doc-id doc_0001 --type book --title "..." --author "Family, Given" --year 2024 --publisher "..." --verified
+python3 main.py biblio-validate --project autonomy_blockchain_paper
+python3 main.py biblio-export --project autonomy_blockchain_paper --format bibtex
 ```
 
 Designed for later modules:
@@ -126,6 +135,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 1. Project Manager | Create folders, defaults, state files, validate structure, status | `init-project`, `status` | Implemented |
 | 2. Dataset Manager | Copy/register PDFs, bulk add PDFs, avoid duplicates, document IDs | `add-pdf`, `add-pdfs`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
+| 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
@@ -144,6 +154,9 @@ Implemented dataclass models:
 - `DocumentRecord`: document ID, original source path, stored PDF path, checksum, registration date.
 - `BulkAddPdfResult`: summary for bulk PDF registration.
 - `IngestionResult`: document ID, extraction status, text path, metadata path, page and word counts.
+- `BibliographicAuthor`: structured citation author name.
+- `BibliographicRecord`: curated bibliographic metadata for one document.
+- `BibliographyValidationResult`: citation-readiness validation result.
 
 Later modules should add:
 
@@ -180,6 +193,7 @@ Testing proceeds module by module:
 - Module 1: create projects in temporary directories, assert required paths and default files, validate status behavior, reject unsafe project names.
 - Module 2: verify duplicate detection using file checksums and stable document IDs.
 - Module 3: run PDF extraction against small fixture PDFs and assert text/metadata/state outputs.
+- Module 3.5: create bibliography templates, set curated metadata, validate required fields, export BibTeX and CSL-JSON.
 - Module 4: test deterministic chunking, index metadata, and reindex behavior.
 - Module 5: test retrieval and prompt composition with a fake LLM provider that refuses unsupported answers.
 - Module 6: test outline output schema and source mapping using fixture chunks.
@@ -191,10 +205,11 @@ The current tests use `unittest` so they run without extra dependencies, and the
 1. Module 1: project manager, default configuration, validation, status command.
 2. Module 2: add PDF registration with SHA-256 duplicate checks in `ingestion_state.json`.
 3. Module 3: extract text/metadata with PyMuPDF and update `ingestion_state.json`.
-4. Run tests and manually ingest a registered PDF.
-5. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
-6. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
-7. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
+4. Module 3.5: curate bibliographic metadata and export verified records.
+5. Run tests and manually validate bibliography readiness.
+6. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
+7. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
+8. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
 
 ## 10. Implemented Code
 
@@ -203,6 +218,7 @@ Implemented module code lives in:
 - `academic_paper_cli/project_manager.py`
 - `academic_paper_cli/dataset_manager.py`
 - `academic_paper_cli/pdf_processor.py`
+- `academic_paper_cli/bibliography_manager.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
@@ -241,6 +257,15 @@ Ingest registered PDFs:
 
 ```bash
 python3 main.py ingest --project autonomy_blockchain_paper
+```
+
+Create, validate, and export bibliographic metadata:
+
+```bash
+python3 main.py biblio-init --project autonomy_blockchain_paper
+python3 main.py biblio-set --project autonomy_blockchain_paper --doc-id doc_0001 --type book --title "Title" --author "Family, Given" --year 2024 --publisher "Publisher" --verified
+python3 main.py biblio-validate --project autonomy_blockchain_paper
+python3 main.py biblio-export --project autonomy_blockchain_paper --format bibtex
 ```
 
 If your shell has `python` mapped to Python 3, the same commands work with `python main.py ...`.

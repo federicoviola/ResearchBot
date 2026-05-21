@@ -8,6 +8,15 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from academic_paper_cli.bibliography_manager import (
+    BibliographyManagerError,
+    export_bibliography,
+    init_bibliography,
+    list_bibliography,
+    set_bibliography_record,
+    show_bibliography_record,
+    validate_bibliography,
+)
 from academic_paper_cli.dataset_manager import (
     DatasetManagerError,
     add_pdf,
@@ -114,6 +123,120 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-extract PDFs that are already marked as ingested.",
     )
 
+    biblio_init = subparsers.add_parser(
+        "biblio-init",
+        help="Create editable bibliographic metadata templates for registered PDFs.",
+    )
+    biblio_init.add_argument("--project", required=True, help="Project folder name.")
+    biblio_init.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_list = subparsers.add_parser(
+        "biblio-list",
+        help="List curated bibliographic records.",
+    )
+    biblio_list.add_argument("--project", required=True, help="Project folder name.")
+    biblio_list.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_show = subparsers.add_parser(
+        "biblio-show",
+        help="Show one bibliographic record.",
+    )
+    biblio_show.add_argument("--project", required=True, help="Project folder name.")
+    biblio_show.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_show.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_set = subparsers.add_parser(
+        "biblio-set",
+        help="Set bibliographic metadata for one document.",
+    )
+    biblio_set.add_argument("--project", required=True, help="Project folder name.")
+    biblio_set.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_set.add_argument("--type", dest="item_type", help="Item type.")
+    biblio_set.add_argument("--title", help="Bibliographic title.")
+    biblio_set.add_argument(
+        "--author",
+        action="append",
+        help='Author as "Family, Given". Can be provided multiple times.',
+    )
+    biblio_set.add_argument("--year", help="Publication year.")
+    biblio_set.add_argument("--publisher", help="Publisher or institution.")
+    biblio_set.add_argument("--place", help="Publication place.")
+    biblio_set.add_argument("--journal", help="Journal or container title.")
+    biblio_set.add_argument("--volume", help="Volume.")
+    biblio_set.add_argument("--issue", help="Issue.")
+    biblio_set.add_argument("--pages", help="Page range.")
+    biblio_set.add_argument("--doi", help="DOI.")
+    biblio_set.add_argument("--isbn", help="ISBN.")
+    biblio_set.add_argument("--url", help="URL.")
+    biblio_set.add_argument("--language", help="Language code.")
+    biblio_set.add_argument("--citation-key", help="Stable citation key.")
+    biblio_set.add_argument("--notes", help="Curator notes.")
+    biblio_set.add_argument(
+        "--status",
+        choices=["needs_review", "verified"],
+        help="Metadata review status.",
+    )
+    biblio_set.add_argument(
+        "--verified",
+        action="store_true",
+        help="Shortcut for --status verified.",
+    )
+    biblio_set.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_validate = subparsers.add_parser(
+        "biblio-validate",
+        help="Validate bibliographic metadata completeness.",
+    )
+    biblio_validate.add_argument("--project", required=True, help="Project folder name.")
+    biblio_validate.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="Do not require metadata_status=verified.",
+    )
+    biblio_validate.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    biblio_export = subparsers.add_parser(
+        "biblio-export",
+        help="Export verified bibliographic records.",
+    )
+    biblio_export.add_argument("--project", required=True, help="Project folder name.")
+    biblio_export.add_argument(
+        "--format",
+        choices=["bibtex", "csl-json"],
+        default="bibtex",
+        help="Export format.",
+    )
+    biblio_export.add_argument(
+        "--include-unverified",
+        action="store_true",
+        help="Include records that are not marked verified.",
+    )
+    biblio_export.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -195,7 +318,91 @@ def main(argv: list[str] | None = None) -> int:
             _render_ingestion_results(results, title=f"Ingestion: {args.project}")
             return 0 if all(result.status != "ingestion_failed" for result in results) else 2
 
-    except (ProjectManagerError, DatasetManagerError, PdfProcessorError) as error:
+        if args.command == "biblio-init":
+            records = init_bibliography(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+            )
+            _render_bibliography(records, title=f"Bibliography: {args.project}")
+            return 0
+
+        if args.command == "biblio-list":
+            records = list_bibliography(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+            )
+            _render_bibliography(records, title=f"Bibliography: {args.project}")
+            return 0
+
+        if args.command == "biblio-show":
+            record = show_bibliography_record(
+                project_name=args.project,
+                document_id=args.doc_id,
+                projects_root=Path(args.projects_root),
+            )
+            _render_bibliography([record], title=f"Bibliographic Record: {args.doc_id}")
+            return 0
+
+        if args.command == "biblio-set":
+            authors = None
+            if args.author is not None:
+                from academic_paper_cli.models import BibliographicAuthor
+
+                authors = [
+                    BibliographicAuthor.from_string(author)
+                    for author in args.author
+                ]
+            record = set_bibliography_record(
+                project_name=args.project,
+                document_id=args.doc_id,
+                projects_root=Path(args.projects_root),
+                item_type=args.item_type,
+                title=args.title,
+                authors=authors,
+                year=args.year,
+                publisher=args.publisher,
+                place=args.place,
+                journal=args.journal,
+                volume=args.volume,
+                issue=args.issue,
+                pages=args.pages,
+                doi=args.doi,
+                isbn=args.isbn,
+                url=args.url,
+                language=args.language,
+                citation_key=args.citation_key,
+                notes=args.notes,
+                metadata_status=args.status,
+                verified=args.verified,
+            )
+            _render_bibliography([record], title=f"Bibliographic Record: {args.doc_id}")
+            return 0
+
+        if args.command == "biblio-validate":
+            results = validate_bibliography(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+                require_verified=not args.allow_unverified,
+            )
+            _render_bibliography_validation(results, title=f"Bibliography Validation: {args.project}")
+            return 0 if all(result.valid for result in results) else 2
+
+        if args.command == "biblio-export":
+            output_path = export_bibliography(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+                export_format=args.format,
+                include_unverified=args.include_unverified,
+            )
+            console.print(f"[green]Exported bibliography:[/green] {output_path}")
+            return 0
+
+    except (
+        ProjectManagerError,
+        DatasetManagerError,
+        PdfProcessorError,
+        BibliographyManagerError,
+    ) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
 
@@ -307,6 +514,62 @@ def _render_ingestion_results(results, title: str) -> None:
             str(result.word_count),
             result.text_path or "",
             result.error or "",
+        )
+
+    console.print(table)
+
+
+def _render_bibliography(records, title: str) -> None:
+    if not records:
+        console.print("[yellow]No bibliographic records.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Type")
+    table.add_column("Citation Key")
+    table.add_column("Status")
+    table.add_column("Year")
+    table.add_column("Authors")
+    table.add_column("Title")
+
+    for record in records:
+        authors = "; ".join(
+            f"{author.family}, {author.given}".strip().strip(",")
+            for author in record.authors
+        )
+        table.add_row(
+            record.document_id,
+            record.item_type,
+            record.citation_key,
+            record.metadata_status,
+            record.year,
+            authors,
+            record.title,
+        )
+
+    console.print(table)
+
+
+def _render_bibliography_validation(results, title: str) -> None:
+    if not results:
+        console.print("[yellow]No bibliographic records to validate.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Citation Key")
+    table.add_column("Status")
+    table.add_column("Valid")
+    table.add_column("Missing")
+
+    for result in results:
+        table.add_row(
+            result.document_id,
+            result.citation_key,
+            result.metadata_status,
+            "yes" if result.valid else "no",
+            ", ".join(result.missing_fields),
         )
 
     console.print(table)

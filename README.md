@@ -7,6 +7,7 @@ Current implementation:
 - Module 1: Project Manager
 - Module 2: Dataset Manager
 - Module 3: PDF Processor
+- Module 3.5: Bibliographic Metadata Manager
 
 ## Requirements
 
@@ -121,6 +122,52 @@ python3 main.py ingest --project autonomy_blockchain_paper --force
 
 Module 3 reads PDFs from `dataset/pdf`, writes extracted text to `dataset/txt`,
 writes metadata JSON to `dataset/metadata`, and updates `state/ingestion_state.json`.
+
+## Module 3.5 Usage
+
+Create editable bibliographic metadata templates for registered PDFs:
+
+```bash
+python3 main.py biblio-init --project autonomy_blockchain_paper
+```
+
+List bibliographic records:
+
+```bash
+python3 main.py biblio-list --project autonomy_blockchain_paper
+```
+
+Set curated metadata for a document:
+
+```bash
+python3 main.py biblio-set \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0001 \
+  --type book \
+  --title "The Imaginary Institution of Society" \
+  --author "Castoriadis, Cornelius" \
+  --year 1987 \
+  --publisher "MIT Press" \
+  --citation-key castoriadis_1987_imaginary \
+  --verified
+```
+
+Validate citation readiness:
+
+```bash
+python3 main.py biblio-validate --project autonomy_blockchain_paper
+```
+
+Export verified records:
+
+```bash
+python3 main.py biblio-export --project autonomy_blockchain_paper --format bibtex
+python3 main.py biblio-export --project autonomy_blockchain_paper --format csl-json
+```
+
+Bibliographic records are stored as editable YAML files in `dataset/bibliography`.
+Exports are written to `outputs/reports`. By default, exports include only records
+marked `verified`.
 
 The app does not build indexes, query an LLM, or generate outlines yet.
 

@@ -252,3 +252,114 @@ class IngestionResult:
     character_count: int = 0
     word_count: int = 0
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class BibliographicAuthor:
+    """Structured author name for academic citations."""
+
+    family: str
+    given: str = ""
+
+    def to_dict(self) -> dict[str, str]:
+        return {"family": self.family, "given": self.given}
+
+    @classmethod
+    def from_string(cls, value: str) -> "BibliographicAuthor":
+        if "," in value:
+            family, given = value.split(",", 1)
+            return cls(family=family.strip(), given=given.strip())
+        return cls(family=value.strip(), given="")
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "BibliographicAuthor":
+        return cls(
+            family=str(payload.get("family", "")).strip(),
+            given=str(payload.get("given", "")).strip(),
+        )
+
+
+@dataclass(frozen=True)
+class BibliographicRecord:
+    """Curated bibliographic metadata for one registered document."""
+
+    document_id: str
+    item_type: str = "generic"
+    title: str = ""
+    authors: list[BibliographicAuthor] = field(default_factory=list)
+    year: str = ""
+    publisher: str = ""
+    place: str = ""
+    journal: str = ""
+    volume: str = ""
+    issue: str = ""
+    pages: str = ""
+    doi: str = ""
+    isbn: str = ""
+    url: str = ""
+    language: str = ""
+    citation_key: str = ""
+    metadata_status: str = "needs_review"
+    notes: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "document_id": self.document_id,
+            "item_type": self.item_type,
+            "title": self.title,
+            "authors": [author.to_dict() for author in self.authors],
+            "year": self.year,
+            "publisher": self.publisher,
+            "place": self.place,
+            "journal": self.journal,
+            "volume": self.volume,
+            "issue": self.issue,
+            "pages": self.pages,
+            "doi": self.doi,
+            "isbn": self.isbn,
+            "url": self.url,
+            "language": self.language,
+            "citation_key": self.citation_key,
+            "metadata_status": self.metadata_status,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "BibliographicRecord":
+        authors_payload = payload.get("authors") or []
+        return cls(
+            document_id=str(payload.get("document_id", "")).strip(),
+            item_type=str(payload.get("item_type", "generic")).strip() or "generic",
+            title=str(payload.get("title", "")).strip(),
+            authors=[
+                BibliographicAuthor.from_dict(author)
+                for author in authors_payload
+                if isinstance(author, dict)
+            ],
+            year=str(payload.get("year", "")).strip(),
+            publisher=str(payload.get("publisher", "")).strip(),
+            place=str(payload.get("place", "")).strip(),
+            journal=str(payload.get("journal", "")).strip(),
+            volume=str(payload.get("volume", "")).strip(),
+            issue=str(payload.get("issue", "")).strip(),
+            pages=str(payload.get("pages", "")).strip(),
+            doi=str(payload.get("doi", "")).strip(),
+            isbn=str(payload.get("isbn", "")).strip(),
+            url=str(payload.get("url", "")).strip(),
+            language=str(payload.get("language", "")).strip(),
+            citation_key=str(payload.get("citation_key", "")).strip(),
+            metadata_status=str(payload.get("metadata_status", "needs_review")).strip()
+            or "needs_review",
+            notes=str(payload.get("notes", "")).strip(),
+        )
+
+
+@dataclass(frozen=True)
+class BibliographyValidationResult:
+    """Validation result for one bibliographic record."""
+
+    document_id: str
+    citation_key: str
+    valid: bool
+    metadata_status: str
+    missing_fields: list[str] = field(default_factory=list)
