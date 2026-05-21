@@ -29,6 +29,7 @@ class LLMSettings:
     api_key_env: str
     temperature: float
     max_tokens: int
+    timeout_seconds: int = 120
 
 
 OPENAI_COMPATIBLE_PROVIDERS = {
@@ -44,9 +45,9 @@ OPENAI_COMPATIBLE_PROVIDERS = {
 class OpenAICompatibleClient:
     """Client for OpenAI-compatible chat completion APIs."""
 
-    def __init__(self, settings: LLMSettings, timeout: int = 120) -> None:
+    def __init__(self, settings: LLMSettings, timeout: int | None = None) -> None:
         self.settings = settings
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else settings.timeout_seconds
 
     def complete(self, messages: list[dict[str, str]]) -> str:
         if not self.settings.model or self.settings.model == "configure-me":
@@ -76,6 +77,12 @@ class OpenAICompatibleClient:
         except HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
             raise LLMClientError(f"LLM provider returned HTTP {error.code}: {detail}") from error
+        except TimeoutError as error:
+            raise LLMClientError(
+                f"LLM provider timed out after {self.timeout} seconds. "
+                "Check that the local server is running and the model is loaded, "
+                "or increase llm.timeout_seconds in config/project.yaml."
+            ) from error
         except URLError as error:
             raise LLMClientError(f"Could not reach LLM provider: {error.reason}") from error
         except json.JSONDecodeError as error:

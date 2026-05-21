@@ -223,6 +223,7 @@ def _llm_settings(config: dict[str, Any]) -> LLMSettings:
         api_key_env=str(llm.get("api_key_env", "OPENAI_API_KEY")),
         temperature=float(llm.get("temperature", 0.2)),
         max_tokens=int(llm.get("max_tokens", 1800)),
+        timeout_seconds=int(llm.get("timeout_seconds", 120)),
     )
 
 

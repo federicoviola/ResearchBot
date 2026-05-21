@@ -369,10 +369,12 @@ llm:
   api_key_env: OPENAI_API_KEY
   temperature: 0.2
   max_tokens: 1800
+  timeout_seconds: 120
 ```
 
 For LM Studio or vLLM, set `base_url` to that server's `/v1` endpoint. For
 OpenAI, use `https://api.openai.com/v1` and set `OPENAI_API_KEY`.
+If a local model is slow to answer, increase `timeout_seconds`.
 
 Native Claude and Gemini clients are not implemented yet, but the provider
 configuration is structured so those adapters can be added without changing the
