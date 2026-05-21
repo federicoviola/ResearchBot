@@ -8,6 +8,7 @@ Current implementation:
 - Module 2: Dataset Manager
 - Module 3: PDF Processor
 - Module 3.5: Bibliographic Metadata Manager
+- Module 3.6: Bibliographic Metadata Enrichment
 
 ## Requirements
 
@@ -168,6 +169,46 @@ python3 main.py biblio-export --project autonomy_blockchain_paper --format csl-j
 Bibliographic records are stored as editable YAML files in `dataset/bibliography`.
 Exports are written to `outputs/reports`. By default, exports include only records
 marked `verified`.
+
+## Module 3.6 Usage
+
+Enrich bibliographic metadata from DOI:
+
+```bash
+python3 main.py biblio-enrich \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0001 \
+  --doi 10.xxxx/example
+```
+
+Enrich bibliographic metadata from ISBN:
+
+```bash
+python3 main.py biblio-enrich \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0001 \
+  --isbn 9780262531559
+```
+
+If a DOI or ISBN is already stored in the bibliographic record, it can be omitted:
+
+```bash
+python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0001
+```
+
+By default, enriched records remain `needs_review`. Use `--auto-verify` only when
+you explicitly trust the matched external metadata:
+
+```bash
+python3 main.py biblio-enrich \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0001 \
+  --isbn 9780262531559 \
+  --auto-verify
+```
+
+External lookup is only used for bibliographic metadata. It is not used as
+evidence for paper claims or LLM-generated academic content.
 
 The app does not build indexes, query an LLM, or generate outlines yet.
 

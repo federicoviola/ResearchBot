@@ -40,6 +40,7 @@ module-1 project manager
 module-2 dataset manager
 module-3 pdf processor
 module-3.5 bibliography manager
+module-3.6 bibliography enrichment
 module-4 index builder
 module-5 query engine
 module-6 outline generator
@@ -52,6 +53,7 @@ module-1-project-manager
 module-2-dataset-manager
 module-3-pdf-processor
 module-3.5-bibliography-manager
+module-3.6-bibliography-enrichment
 module-4-index-builder
 module-5-query-engine
 module-6-outline-generator

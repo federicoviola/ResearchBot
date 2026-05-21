@@ -300,6 +300,10 @@ class BibliographicRecord:
     language: str = ""
     citation_key: str = ""
     metadata_status: str = "needs_review"
+    metadata_source: str = ""
+    metadata_source_url: str = ""
+    metadata_confidence: str = ""
+    metadata_enriched_at: str = ""
     notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -321,6 +325,10 @@ class BibliographicRecord:
             "language": self.language,
             "citation_key": self.citation_key,
             "metadata_status": self.metadata_status,
+            "metadata_source": self.metadata_source,
+            "metadata_source_url": self.metadata_source_url,
+            "metadata_confidence": self.metadata_confidence,
+            "metadata_enriched_at": self.metadata_enriched_at,
             "notes": self.notes,
         }
 
@@ -350,6 +358,10 @@ class BibliographicRecord:
             citation_key=str(payload.get("citation_key", "")).strip(),
             metadata_status=str(payload.get("metadata_status", "needs_review")).strip()
             or "needs_review",
+            metadata_source=str(payload.get("metadata_source", "")).strip(),
+            metadata_source_url=str(payload.get("metadata_source_url", "")).strip(),
+            metadata_confidence=str(payload.get("metadata_confidence", "")).strip(),
+            metadata_enriched_at=str(payload.get("metadata_enriched_at", "")).strip(),
             notes=str(payload.get("notes", "")).strip(),
         )
 
@@ -363,3 +375,14 @@ class BibliographyValidationResult:
     valid: bool
     metadata_status: str
     missing_fields: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BibliographyEnrichmentResult:
+    """Result of enriching one bibliographic record from an external metadata source."""
+
+    record: BibliographicRecord
+    enriched: bool
+    source: str = ""
+    source_url: str = ""
+    message: str = ""

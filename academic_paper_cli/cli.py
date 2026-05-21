@@ -17,6 +17,10 @@ from academic_paper_cli.bibliography_manager import (
     show_bibliography_record,
     validate_bibliography,
 )
+from academic_paper_cli.bibliography_enrichment import (
+    BibliographyEnrichmentError,
+    enrich_bibliography_record,
+)
 from academic_paper_cli.dataset_manager import (
     DatasetManagerError,
     add_pdf,
@@ -237,6 +241,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    biblio_enrich = subparsers.add_parser(
+        "biblio-enrich",
+        help="Enrich bibliographic metadata from DOI or ISBN lookup.",
+    )
+    biblio_enrich.add_argument("--project", required=True, help="Project folder name.")
+    biblio_enrich.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_enrich.add_argument("--doi", help="DOI to look up through Crossref/DataCite.")
+    biblio_enrich.add_argument("--isbn", help="ISBN to look up through Open Library.")
+    biblio_enrich.add_argument(
+        "--auto-verify",
+        action="store_true",
+        help="Mark enriched metadata as verified after lookup.",
+    )
+    biblio_enrich.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwriting an already verified bibliographic record.",
+    )
+    biblio_enrich.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -397,11 +425,29 @@ def main(argv: list[str] | None = None) -> int:
             console.print(f"[green]Exported bibliography:[/green] {output_path}")
             return 0
 
+        if args.command == "biblio-enrich":
+            result = enrich_bibliography_record(
+                project_name=args.project,
+                document_id=args.doc_id,
+                projects_root=Path(args.projects_root),
+                doi=args.doi,
+                isbn=args.isbn,
+                auto_verify=args.auto_verify,
+                force=args.force,
+            )
+            console.print(
+                f"[green]Enriched bibliography:[/green] {result.record.document_id} "
+                f"from {result.source}"
+            )
+            _render_bibliography([result.record], title=f"Bibliographic Record: {args.doc_id}")
+            return 0
+
     except (
         ProjectManagerError,
         DatasetManagerError,
         PdfProcessorError,
         BibliographyManagerError,
+        BibliographyEnrichmentError,
     ) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
