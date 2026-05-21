@@ -126,12 +126,12 @@ python3 main.py biblio-accept-candidate --project autonomy_blockchain_paper --do
 python3 main.py build-index --project autonomy_blockchain_paper
 python3 main.py index-status --project autonomy_blockchain_paper
 python3 main.py retrieve --project autonomy_blockchain_paper "autonomy self institution"
+python3 main.py query --project autonomy_blockchain_paper "What does the dataset say about autonomy?"
 ```
 
 Designed for later modules:
 
 ```bash
-python3 main.py query --project autonomy_blockchain_paper "What does the dataset say about autonomy?"
 python3 main.py outline --project autonomy_blockchain_paper --skill outline_design
 python3 main.py list-skills --project autonomy_blockchain_paper
 python3 main.py add-skill --project autonomy_blockchain_paper --name philosophical_argumentation
@@ -148,7 +148,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, search candidates, and apply reviewed candidates | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search`, `biblio-accept-candidate` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store local index artifacts | `build-index`, `index-status` | Implemented |
 | 5a. Local Retrieval Engine | Retrieve ranked chunks from the local index with source metadata | `retrieve` | Implemented |
-| 5b. Query Engine | Compose grounded prompts and call configurable LLM provider | `query` | Designed only |
+| 5b. Query Engine | Compose grounded prompts and call configurable OpenAI-compatible LLM provider | `query` | Implemented |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
 
 ## 6. Data Models
@@ -175,10 +175,7 @@ Implemented dataclass models:
 - `IndexBuildResult`: summary of a completed local index build.
 - `IndexStatus`: current local index state.
 - `RetrievalResult`: ranked retrieved chunk with score and source label.
-
-Later modules should add:
-
-- `LLMRunRecord`: prompt hash, retrieved chunk IDs, provider, model, output path.
+- `QueryResult`: grounded answer, retrieved sources, provider/model, prompt path, and response path.
 
 ## 7. Prompt Composition Strategy
 
@@ -212,7 +209,7 @@ Testing proceeds module by module:
 - Module 3.5: create bibliography templates, set curated metadata, validate required fields, export BibTeX and CSL-JSON.
 - Module 3.6: enrich metadata and search candidates using fake external API clients, without depending on internet during tests.
 - Module 4: test deterministic chunking, index metadata, and reindex behavior.
-- Module 5: test retrieval and prompt composition with a fake LLM provider that refuses unsupported answers.
+- Module 5: test retrieval and prompt composition with a fake LLM provider, plus dry-run behavior that makes no network calls.
 - Module 6: test outline output schema and source mapping using fixture chunks.
 
 The current tests use `unittest` so they run without extra dependencies, and they remain discoverable by `pytest` later.
@@ -227,7 +224,7 @@ The current tests use `unittest` so they run without extra dependencies, and the
 6. Run tests and manually validate bibliography readiness.
 7. Module 4: chunk texts, embed chunks, persist local index artifacts and chunk metadata.
 8. Module 5a: retrieve ranked chunks from the local index.
-9. Module 5b: compose closed-corpus prompt and call configurable LLM provider.
+9. Module 5b: compose closed-corpus prompt and call configurable OpenAI-compatible LLM provider.
 10. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
 
 ## 10. Implemented Code
@@ -240,12 +237,14 @@ Implemented module code lives in:
 - `academic_paper_cli/bibliography_manager.py`
 - `academic_paper_cli/bibliography_enrichment.py`
 - `academic_paper_cli/index_builder.py`
+- `academic_paper_cli/llm_client.py`
+- `academic_paper_cli/query_engine.py`
 - `academic_paper_cli/retrieval_engine.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
 
-Query and outline commands are not implemented yet.
+Outline commands are not implemented yet.
 
 ## 11. Instructions to Run and Test
 

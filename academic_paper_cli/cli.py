@@ -36,12 +36,14 @@ from academic_paper_cli.index_builder import (
     build_index,
     get_index_status,
 )
+from academic_paper_cli.llm_client import LLMClientError
 from academic_paper_cli.pdf_processor import PdfProcessorError, ingest_project
 from academic_paper_cli.project_manager import (
     ProjectManagerError,
     create_project,
     get_project_status,
 )
+from academic_paper_cli.query_engine import QueryEngineError, query_dataset
 from academic_paper_cli.retrieval_engine import RetrievalEngineError, retrieve_chunks
 
 console = Console()
@@ -404,6 +406,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    query = subparsers.add_parser(
+        "query",
+        help="Answer a question using only retrieved project dataset chunks.",
+    )
+    query.add_argument("--project", required=True, help="Project folder name.")
+    query.add_argument("question", help="Question to answer from the project dataset.")
+    query.add_argument(
+        "--top-k",
+        type=int,
+        help="Number of chunks to retrieve before composing the grounded prompt.",
+    )
+    query.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Retrieve context and save the prompt without calling an LLM.",
+    )
+    query.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -681,6 +705,17 @@ def main(argv: list[str] | None = None) -> int:
             _render_retrieval_results(results, title=f"Retrieval: {args.project}")
             return 0 if results else 2
 
+        if args.command == "query":
+            result = query_dataset(
+                project_name=args.project,
+                query=args.question,
+                projects_root=Path(args.projects_root),
+                top_k=args.top_k,
+                dry_run=args.dry_run,
+            )
+            _render_query_result(result, title=f"Query: {args.project}")
+            return 0
+
     except (
         ProjectManagerError,
         DatasetManagerError,
@@ -689,6 +724,8 @@ def main(argv: list[str] | None = None) -> int:
         BibliographyEnrichmentError,
         IndexBuilderError,
         RetrievalEngineError,
+        QueryEngineError,
+        LLMClientError,
     ) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
@@ -951,6 +988,31 @@ def _render_retrieval_results(results, title: str) -> None:
         )
 
     console.print(table)
+
+
+def _render_query_result(result, title: str) -> None:
+    console.rule(title)
+    console.print(result.answer)
+    if result.retrieval_results:
+        console.print()
+        console.print("[bold]Sources[/bold]")
+        for retrieval in result.retrieval_results:
+            chunk = retrieval.chunk
+            source = " | ".join(
+                value
+                for value in [
+                    chunk.chunk_id,
+                    chunk.title,
+                    "; ".join(chunk.authors),
+                    chunk.year,
+                    f"score={retrieval.score:.3f}",
+                ]
+                if value
+            )
+            console.print(f"{retrieval.rank}. {source}")
+    console.print()
+    console.print(f"[dim]Prompt: {result.prompt_path}[/dim]")
+    console.print(f"[dim]Response: {result.response_path}[/dim]")
 
 
 def _excerpt(text: str, limit: int = 280) -> str:

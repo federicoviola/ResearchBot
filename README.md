@@ -11,6 +11,7 @@ Current implementation:
 - Module 3.6: Bibliographic Metadata Enrichment
 - Module 4: Index Builder
 - Module 5a: Local Retrieval Engine
+- Module 5b: Grounded Query Engine
 
 ## Requirements
 
@@ -325,7 +326,58 @@ The retrieve command does not call an LLM. It only returns ranked dataset chunks
 with scores, source metadata, chunk IDs, and short excerpts. This lets you inspect
 whether the corpus contains useful evidence before using a grounded LLM query.
 
-The app does not generate LLM answers or outlines yet.
+## Module 5b Usage
+
+Generate a grounded answer from retrieved dataset chunks:
+
+```bash
+python3 main.py query \
+  --project autonomy_blockchain_paper \
+  "What does the dataset say about autonomy and self-institution?"
+```
+
+Inspect the retrieved context and saved prompt without calling an LLM:
+
+```bash
+python3 main.py query \
+  --project autonomy_blockchain_paper \
+  --top-k 5 \
+  --dry-run \
+  "What does the dataset say about autonomy and self-institution?"
+```
+
+The query command always retrieves chunks first and composes a closed prompt.
+The LLM is instructed to answer only from those chunks, cite source chunk IDs,
+and state when the retrieved context is insufficient.
+
+Query prompts and responses are saved in:
+
+```text
+outputs/logs/
+```
+
+Configure the LLM in `config/project.yaml`. The current implementation supports
+OpenAI-compatible chat completion endpoints, including Ollama, LM Studio, vLLM,
+OpenAI, and compatible proxies:
+
+```yaml
+llm:
+  provider: openai_compatible
+  base_url: http://localhost:11434/v1
+  model: llama3.1
+  api_key_env: OPENAI_API_KEY
+  temperature: 0.2
+  max_tokens: 1800
+```
+
+For LM Studio or vLLM, set `base_url` to that server's `/v1` endpoint. For
+OpenAI, use `https://api.openai.com/v1` and set `OPENAI_API_KEY`.
+
+Native Claude and Gemini clients are not implemented yet, but the provider
+configuration is structured so those adapters can be added without changing the
+retrieval or prompt pipeline.
+
+The app does not generate outlines yet.
 
 ## GitHub Workflow
 

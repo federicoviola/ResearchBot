@@ -349,6 +349,25 @@ class RetrievalResult:
 
 
 @dataclass(frozen=True)
+class QueryResult:
+    """Grounded query result produced from retrieved chunks."""
+
+    project_name: str
+    query: str
+    answer: str
+    retrieval_results: list[RetrievalResult]
+    provider: str
+    model: str
+    prompt_path: str = ""
+    response_path: str = ""
+    dry_run: bool = False
+
+    @property
+    def source_labels(self) -> list[str]:
+        return [result.source_label for result in self.retrieval_results]
+
+
+@dataclass(frozen=True)
 class BibliographicAuthor:
     """Structured author name for academic citations."""
 
