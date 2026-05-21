@@ -46,6 +46,24 @@ class PdfProcessorTests(unittest.TestCase):
             self.assertEqual(record["text_path"], result.text_path)
             self.assertEqual(record["metadata_path"], result.metadata_path)
 
+    def test_ingest_detects_doi_and_isbn_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            projects_root = root / "projects"
+            source_pdf = root / "identifiers.pdf"
+            _write_pdf(
+                source_pdf,
+                "DOI: 10.1234/example.test ISBN 978-0-262-53155-9",
+            )
+            create_project("paper", projects_root)
+            add_pdf("paper", source_pdf, projects_root)
+
+            result = ingest_project("paper", projects_root)[0]
+
+            metadata = json.loads(Path(result.metadata_path).read_text())
+            self.assertEqual(metadata["identifiers"]["doi"], ["10.1234/example.test"])
+            self.assertEqual(metadata["identifiers"]["isbn"], ["9780262531559"])
+
     def test_ingest_skips_already_ingested_documents_without_force(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

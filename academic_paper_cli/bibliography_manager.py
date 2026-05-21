@@ -201,6 +201,9 @@ def _template_record(paths: ProjectPaths, document: DocumentRecord) -> Bibliogra
     title = str(pdf_metadata.get("title", "")).strip()
     authors = _authors_from_pdf_metadata(str(pdf_metadata.get("author", "")).strip())
     year = _year_from_pdf_metadata(pdf_metadata)
+    identifiers = extracted.get("identifiers", {}) if extracted else {}
+    doi = _first_identifier(identifiers.get("doi", []))
+    isbn = _first_identifier(identifiers.get("isbn", []))
     citation_key = _citation_key(
         [author.to_dict() for author in authors],
         year,
@@ -212,6 +215,8 @@ def _template_record(paths: ProjectPaths, document: DocumentRecord) -> Bibliogra
         title=title,
         authors=authors,
         year=year,
+        doi=doi,
+        isbn=isbn,
         language=str(extracted.get("language", "") if extracted else ""),
         citation_key=citation_key,
         metadata_status="needs_review",
@@ -231,6 +236,12 @@ def _load_extracted_metadata(paths: ProjectPaths, document_id: str) -> dict[str,
     except json.JSONDecodeError:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _first_identifier(values: Any) -> str:
+    if isinstance(values, list) and values:
+        return str(values[0]).strip()
+    return ""
 
 
 def _authors_from_pdf_metadata(author_text: str) -> list[BibliographicAuthor]:

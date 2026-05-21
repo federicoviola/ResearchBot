@@ -15,6 +15,7 @@ from academic_paper_cli.bibliography_manager import (
 )
 from academic_paper_cli.cli import main
 from academic_paper_cli.dataset_manager import add_pdf
+from academic_paper_cli.pdf_processor import ingest_project
 from academic_paper_cli.project_manager import create_project
 
 
@@ -42,6 +43,32 @@ class BibliographyManagerTests(unittest.TestCase):
             payload = yaml.safe_load(record_path.read_text())
             self.assertEqual(payload["document_id"], "doc_0001")
             self.assertEqual(payload["metadata_status"], "needs_review")
+
+    def test_init_bibliography_uses_ingested_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            projects_root = root / "projects"
+            source_pdf = root / "source.pdf"
+            _write_pdf(
+                source_pdf,
+                "DOI 10.1234/example.test ISBN 978-0-262-53155-9",
+            )
+            create_project("paper", projects_root)
+            add_pdf("paper", source_pdf, projects_root)
+            ingest_project("paper", projects_root)
+
+            init_bibliography("paper", projects_root)
+
+            record_path = (
+                projects_root
+                / "paper"
+                / "dataset"
+                / "bibliography"
+                / "doc_0001.yaml"
+            )
+            payload = yaml.safe_load(record_path.read_text())
+            self.assertEqual(payload["doi"], "10.1234/example.test")
+            self.assertEqual(payload["isbn"], "9780262531559")
 
     def test_set_validate_and_export_bibliography(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -152,3 +179,13 @@ class BibliographyManagerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _write_pdf(path: Path, text: str) -> None:
+    import fitz
+
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), text)
+    document.save(path)
+    document.close()

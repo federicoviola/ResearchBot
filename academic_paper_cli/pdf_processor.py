@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,7 @@ def _metadata_from_pdf(
         "sha256": record.sha256,
         "page_count": int(pdf.page_count),
         "pdf_metadata": cleaned_metadata,
+        "identifiers": _extract_identifiers(text, cleaned_metadata),
         "extraction": {
             "extracted_at": _utc_now_iso(),
             "tool": "PyMuPDF",
@@ -149,6 +151,49 @@ def _result_from_record(record: DocumentRecord, skipped: bool) -> IngestionResul
         text_path=None,
         metadata_path=None,
     )
+
+
+def _extract_identifiers(text: str, pdf_metadata: dict[str, Any]) -> dict[str, list[str]]:
+    haystack = "\n".join([text, *[str(value) for value in pdf_metadata.values()]])
+    return {
+        "doi": _unique(_extract_dois(haystack)),
+        "isbn": _unique(_extract_isbns(haystack)),
+    }
+
+
+def _extract_dois(text: str) -> list[str]:
+    pattern = re.compile(r"\b10\.\d{4,9}/[^\s\"<>]+", re.IGNORECASE)
+    dois = []
+    for match in pattern.finditer(text):
+        doi = match.group(0).rstrip(".,;:)]}")
+        dois.append(doi)
+    return dois
+
+
+def _extract_isbns(text: str) -> list[str]:
+    pattern = re.compile(
+        r"\b(?:ISBN(?:-1[03])?:?\s*)?"
+        r"(?=(?:[0-9Xx][ -]?){10,17}\b)"
+        r"(?:97[89][ -]?)?[0-9][0-9 -]{8,}[0-9Xx]\b",
+        re.IGNORECASE,
+    )
+    isbns = []
+    for match in pattern.finditer(text):
+        isbn = re.sub(r"[^0-9Xx]", "", match.group(0))
+        if len(isbn) in (10, 13):
+            isbns.append(isbn)
+    return isbns
+
+
+def _unique(values: list[str]) -> list[str]:
+    seen = set()
+    unique_values = []
+    for value in values:
+        normalized = value.lower()
+        if normalized not in seen:
+            unique_values.append(value)
+            seen.add(normalized)
+    return unique_values
 
 
 def _valid_project_paths(project_name: str, projects_root: Path) -> ProjectPaths:

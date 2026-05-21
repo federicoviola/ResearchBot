@@ -123,6 +123,8 @@ python3 main.py ingest --project autonomy_blockchain_paper --force
 
 Module 3 reads PDFs from `dataset/pdf`, writes extracted text to `dataset/txt`,
 writes metadata JSON to `dataset/metadata`, and updates `state/ingestion_state.json`.
+It also detects DOI and ISBN identifiers found in the extracted PDF text or PDF
+metadata.
 
 ## Module 3.5 Usage
 
@@ -131,6 +133,9 @@ Create editable bibliographic metadata templates for registered PDFs:
 ```bash
 python3 main.py biblio-init --project autonomy_blockchain_paper
 ```
+
+If `ingest` found DOI or ISBN identifiers, `biblio-init` seeds them into the
+editable YAML records so that bulk enrichment can use them.
 
 List bibliographic records:
 
