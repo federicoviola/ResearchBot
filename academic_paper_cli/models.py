@@ -1,4 +1,4 @@
-"""Typed project models for Module 1.
+"""Typed project models for the academic paper CLI.
 
 Later modules can replace or extend these dataclasses with Pydantic models
 without changing the folder contract created by the project manager.
@@ -171,3 +171,48 @@ class ProjectStatus:
     @property
     def missing_count(self) -> int:
         return len(self.missing_directories) + len(self.missing_files)
+
+
+@dataclass(frozen=True)
+class DocumentRecord:
+    """Registered source PDF in a project dataset."""
+
+    document_id: str
+    original_filename: str
+    source_path: str
+    stored_path: str
+    sha256: str
+    added_at: str
+    status: str = "pending_ingestion"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "document_id": self.document_id,
+            "original_filename": self.original_filename,
+            "source_path": self.source_path,
+            "stored_path": self.stored_path,
+            "sha256": self.sha256,
+            "added_at": self.added_at,
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "DocumentRecord":
+        return cls(
+            document_id=str(payload["document_id"]),
+            original_filename=str(payload["original_filename"]),
+            source_path=str(payload["source_path"]),
+            stored_path=str(payload["stored_path"]),
+            sha256=str(payload["sha256"]),
+            added_at=str(payload["added_at"]),
+            status=str(payload.get("status", "pending_ingestion")),
+        )
+
+
+@dataclass(frozen=True)
+class AddPdfResult:
+    """Result of registering a PDF."""
+
+    record: DocumentRecord
+    added: bool
+    duplicate_of: str | None = None

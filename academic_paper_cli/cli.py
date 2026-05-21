@@ -8,6 +8,11 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from academic_paper_cli.dataset_manager import (
+    DatasetManagerError,
+    add_pdf,
+    list_documents,
+)
 from academic_paper_cli.project_manager import (
     ProjectManagerError,
     create_project,
@@ -46,6 +51,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    add_pdf_parser = subparsers.add_parser(
+        "add-pdf",
+        help="Add an academic PDF to a project dataset.",
+    )
+    add_pdf_parser.add_argument("--project", required=True, help="Project folder name.")
+    add_pdf_parser.add_argument("--file", required=True, help="Path to the PDF file.")
+    add_pdf_parser.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    list_docs = subparsers.add_parser(
+        "list-docs",
+        help="List PDFs registered in a project dataset.",
+    )
+    list_docs.add_argument("--project", required=True, help="Project folder name.")
+    list_docs.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -71,7 +99,34 @@ def main(argv: list[str] | None = None) -> int:
             _render_status(status)
             return 0 if status.valid else 2
 
-    except ProjectManagerError as error:
+        if args.command == "add-pdf":
+            result = add_pdf(
+                project_name=args.project,
+                source_file=Path(args.file),
+                projects_root=Path(args.projects_root),
+            )
+            if result.added:
+                console.print(
+                    f"[green]Added PDF:[/green] {result.record.document_id} "
+                    f"({result.record.original_filename})"
+                )
+            else:
+                console.print(
+                    f"[yellow]Duplicate PDF:[/yellow] already registered as "
+                    f"{result.duplicate_of}"
+                )
+            _render_documents([result.record], title="Document")
+            return 0
+
+        if args.command == "list-docs":
+            documents = list_documents(
+                project_name=args.project,
+                projects_root=Path(args.projects_root),
+            )
+            _render_documents(documents, title=f"Documents: {args.project}")
+            return 0
+
+    except (ProjectManagerError, DatasetManagerError) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
 
@@ -107,3 +162,27 @@ def _render_status(status) -> None:
         console.print("[yellow]Missing files:[/yellow]")
         for path in status.missing_files:
             console.print(f"  - {path}")
+
+
+def _render_documents(documents, title: str) -> None:
+    if not documents:
+        console.print("[yellow]No registered documents.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Original File")
+    table.add_column("Status")
+    table.add_column("SHA-256")
+    table.add_column("Stored Path")
+
+    for document in documents:
+        table.add_row(
+            document.document_id,
+            document.original_filename,
+            document.status,
+            document.sha256[:12],
+            document.stored_path,
+        )
+
+    console.print(table)

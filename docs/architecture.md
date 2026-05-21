@@ -25,6 +25,7 @@ academic-paper-cli/
 │   ├── __init__.py
 │   ├── cli.py
 │   ├── models.py
+│   ├── dataset_manager.py
 │   └── project_manager.py
 ├── docs/
 │   └── architecture.md
@@ -95,18 +96,18 @@ LLM provider choices remain OpenAI-compatible by interface. Ollama, LM Studio, v
 
 ## 4. CLI Command Design
 
-Implemented in Module 1:
+Implemented:
 
 ```bash
 python3 main.py init-project --name autonomy_blockchain_paper
 python3 main.py status --project autonomy_blockchain_paper
+python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
+python3 main.py list-docs --project autonomy_blockchain_paper
 ```
 
 Designed for later modules:
 
 ```bash
-python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
-python3 main.py list-docs --project autonomy_blockchain_paper
 python3 main.py ingest --project autonomy_blockchain_paper
 python3 main.py build-index --project autonomy_blockchain_paper
 python3 main.py index-status --project autonomy_blockchain_paper
@@ -121,7 +122,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | Module | Responsibility | Commands | Current Status |
 |---|---|---|---|
 | 1. Project Manager | Create folders, defaults, state files, validate structure, status | `init-project`, `status` | Implemented |
-| 2. Dataset Manager | Copy/register PDFs, avoid duplicates, document IDs | `add-pdf`, `list-docs` | Designed only |
+| 2. Dataset Manager | Copy/register PDFs, avoid duplicates, document IDs | `add-pdf`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Designed only |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
@@ -129,7 +130,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 
 ## 6. Data Models
 
-Module 1 implements dataclass models:
+Implemented dataclass models:
 
 - `LLMProviderConfig`
 - `RetrievalConfig`
@@ -138,9 +139,10 @@ Module 1 implements dataclass models:
 - `ProjectPaths`
 - `ProjectStatus`
 
+- `DocumentRecord`: document ID, original source path, stored PDF path, checksum, registration date.
+
 Later modules should add:
 
-- `DocumentRecord`: document ID, original source path, stored PDF path, checksum, registration date.
 - `ExtractedDocument`: document ID, text path, metadata path, extraction status.
 - `ChunkRecord`: chunk ID, document ID, page range, text span, index backend ID.
 - `RetrievalResult`: chunk text, score, document metadata, source reference.
@@ -184,25 +186,26 @@ The current tests use `unittest` so they run without extra dependencies, and the
 ## 9. Implementation Roadmap
 
 1. Module 1: project manager, default configuration, validation, status command.
-2. Run tests and manually initialize a project.
-3. Module 2: add PDF registration with SHA-256 duplicate checks and `documents.json` or SQLite metadata.
+2. Module 2: add PDF registration with SHA-256 duplicate checks in `ingestion_state.json`.
+3. Run tests and manually add/list a PDF.
 4. Module 3: extract text/metadata with PyMuPDF and update `ingestion_state.json`.
 5. Module 4: chunk texts, embed chunks, persist vector index and chunk metadata.
 6. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
 7. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
 
-## 10. Code for Module 1 Only
+## 10. Implemented Code
 
-Module 1 code lives in:
+Implemented module code lives in:
 
 - `academic_paper_cli/project_manager.py`
+- `academic_paper_cli/dataset_manager.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
 
-No later module commands are implemented yet.
+No ingestion, indexing, query, or outline commands are implemented yet.
 
-## 11. Instructions to Run and Test Module 1
+## 11. Instructions to Run and Test
 
 Run the tests:
 
@@ -220,6 +223,13 @@ Check status:
 
 ```bash
 python3 main.py status --project autonomy_blockchain_paper
+```
+
+Add and list a PDF:
+
+```bash
+python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
+python3 main.py list-docs --project autonomy_blockchain_paper
 ```
 
 If your shell has `python` mapped to Python 3, the same commands work with `python main.py ...`.

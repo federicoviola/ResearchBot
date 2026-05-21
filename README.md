@@ -2,7 +2,10 @@
 
 CLI-first MVP for an AI-assisted academic paper production system based on a closed bibliographic dataset.
 
-Current implementation: Module 1 only.
+Current implementation:
+
+- Module 1: Project Manager
+- Module 2: Dataset Manager
 
 ## Requirements
 
@@ -66,7 +69,24 @@ projects/autonomy_blockchain_paper/
 └── state/
 ```
 
-Module 1 does not ingest PDFs, build indexes, query an LLM, or generate outlines yet.
+## Module 2 Usage
+
+Add a PDF to a project dataset:
+
+```bash
+python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
+```
+
+List registered PDFs:
+
+```bash
+python3 main.py list-docs --project autonomy_blockchain_paper
+```
+
+Module 2 copies PDFs into `dataset/pdf`, assigns stable document IDs, and avoids
+duplicates using SHA-256 checksums.
+
+The app does not extract text, build indexes, query an LLM, or generate outlines yet.
 
 ## GitHub Workflow
 
