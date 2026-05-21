@@ -334,6 +334,21 @@ class IndexStatus:
 
 
 @dataclass(frozen=True)
+class RetrievalResult:
+    """Ranked chunk returned by local retrieval."""
+
+    chunk: ChunkRecord
+    score: float
+    rank: int
+
+    @property
+    def source_label(self) -> str:
+        title = self.chunk.title or self.chunk.document_id
+        year = f", {self.chunk.year}" if self.chunk.year else ""
+        return f"{title}{year} [{self.chunk.chunk_id}]"
+
+
+@dataclass(frozen=True)
 class BibliographicAuthor:
     """Structured author name for academic citations."""
 

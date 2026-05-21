@@ -125,6 +125,7 @@ python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0
 python3 main.py biblio-accept-candidate --project autonomy_blockchain_paper --doc-id doc_0001 --candidate 1 --verified
 python3 main.py build-index --project autonomy_blockchain_paper
 python3 main.py index-status --project autonomy_blockchain_paper
+python3 main.py retrieve --project autonomy_blockchain_paper "autonomy self institution"
 ```
 
 Designed for later modules:
@@ -146,7 +147,8 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
 | 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, search candidates, and apply reviewed candidates | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search`, `biblio-accept-candidate` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store local index artifacts | `build-index`, `index-status` | Implemented |
-| 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
+| 5a. Local Retrieval Engine | Retrieve ranked chunks from the local index with source metadata | `retrieve` | Implemented |
+| 5b. Query Engine | Compose grounded prompts and call configurable LLM provider | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
 
 ## 6. Data Models
@@ -172,10 +174,10 @@ Implemented dataclass models:
 - `ChunkRecord`: chunk ID, document ID, word span, text, and bibliographic source metadata.
 - `IndexBuildResult`: summary of a completed local index build.
 - `IndexStatus`: current local index state.
+- `RetrievalResult`: ranked retrieved chunk with score and source label.
 
 Later modules should add:
 
-- `RetrievalResult`: chunk text, score, document metadata, source reference.
 - `LLMRunRecord`: prompt hash, retrieved chunk IDs, provider, model, output path.
 
 ## 7. Prompt Composition Strategy
@@ -224,8 +226,9 @@ The current tests use `unittest` so they run without extra dependencies, and the
 5. Module 3.6: enrich bibliographic metadata from DOI/ISBN sources and search candidates for records without identifiers.
 6. Run tests and manually validate bibliography readiness.
 7. Module 4: chunk texts, embed chunks, persist local index artifacts and chunk metadata.
-8. Module 5: retrieve chunks, compose closed-corpus prompt, call configurable LLM provider.
-9. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
+8. Module 5a: retrieve ranked chunks from the local index.
+9. Module 5b: compose closed-corpus prompt and call configurable LLM provider.
+10. Module 6: generate source-mapped paper outline and save Markdown/JSON outputs.
 
 ## 10. Implemented Code
 
@@ -237,6 +240,7 @@ Implemented module code lives in:
 - `academic_paper_cli/bibliography_manager.py`
 - `academic_paper_cli/bibliography_enrichment.py`
 - `academic_paper_cli/index_builder.py`
+- `academic_paper_cli/retrieval_engine.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`

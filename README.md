@@ -10,6 +10,7 @@ Current implementation:
 - Module 3.5: Bibliographic Metadata Manager
 - Module 3.6: Bibliographic Metadata Enrichment
 - Module 4: Index Builder
+- Module 5a: Local Retrieval Engine
 
 ## Requirements
 
@@ -303,7 +304,28 @@ index can be built without external services or heavyweight model downloads.
 Later modules can replace the embedding backend while keeping the same chunk
 metadata contract.
 
-The app does not query an LLM or generate outlines yet.
+## Module 5a Usage
+
+Retrieve relevant chunks from the local index:
+
+```bash
+python3 main.py retrieve --project autonomy_blockchain_paper "autonomy self institution"
+```
+
+Limit the number of returned chunks:
+
+```bash
+python3 main.py retrieve \
+  --project autonomy_blockchain_paper \
+  --top-k 5 \
+  "autonomy self institution"
+```
+
+The retrieve command does not call an LLM. It only returns ranked dataset chunks
+with scores, source metadata, chunk IDs, and short excerpts. This lets you inspect
+whether the corpus contains useful evidence before using a grounded LLM query.
+
+The app does not generate LLM answers or outlines yet.
 
 ## GitHub Workflow
 

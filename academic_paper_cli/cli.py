@@ -42,6 +42,7 @@ from academic_paper_cli.project_manager import (
     create_project,
     get_project_status,
 )
+from academic_paper_cli.retrieval_engine import RetrievalEngineError, retrieve_chunks
 
 console = Console()
 
@@ -386,6 +387,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    retrieve = subparsers.add_parser(
+        "retrieve",
+        help="Retrieve relevant chunks from the local project index.",
+    )
+    retrieve.add_argument("--project", required=True, help="Project folder name.")
+    retrieve.add_argument("query", help="Search query.")
+    retrieve.add_argument(
+        "--top-k",
+        type=int,
+        help="Number of chunks to return. Defaults to config/project.yaml retrieval.top_k.",
+    )
+    retrieve.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -653,6 +671,16 @@ def main(argv: list[str] | None = None) -> int:
             _render_index_status(status)
             return 0 if status.status == "built" else 2
 
+        if args.command == "retrieve":
+            results = retrieve_chunks(
+                project_name=args.project,
+                query=args.query,
+                projects_root=Path(args.projects_root),
+                top_k=args.top_k,
+            )
+            _render_retrieval_results(results, title=f"Retrieval: {args.project}")
+            return 0 if results else 2
+
     except (
         ProjectManagerError,
         DatasetManagerError,
@@ -660,6 +688,7 @@ def main(argv: list[str] | None = None) -> int:
         BibliographyManagerError,
         BibliographyEnrichmentError,
         IndexBuilderError,
+        RetrievalEngineError,
     ) as error:
         console.print(f"[red]Error:[/red] {error}")
         return 1
@@ -893,6 +922,42 @@ def _render_index_status(status) -> None:
         table.add_row("Message", status.message)
 
     console.print(table)
+
+
+def _render_retrieval_results(results, title: str) -> None:
+    if not results:
+        console.print("[yellow]No relevant chunks found.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("#", style="bold")
+    table.add_column("Score")
+    table.add_column("Chunk")
+    table.add_column("Source")
+    table.add_column("Excerpt")
+
+    for result in results:
+        chunk = result.chunk
+        authors = "; ".join(chunk.authors)
+        source = " | ".join(
+            value for value in [chunk.title, authors, chunk.year] if value
+        )
+        table.add_row(
+            str(result.rank),
+            f"{result.score:.3f}",
+            chunk.chunk_id,
+            source or chunk.document_id,
+            _excerpt(chunk.text),
+        )
+
+    console.print(table)
+
+
+def _excerpt(text: str, limit: int = 280) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3].rstrip() + "..."
 
 
 def _render_identifier_diagnostics(diagnostics, title: str) -> None:
