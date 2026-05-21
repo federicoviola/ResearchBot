@@ -19,6 +19,7 @@ from academic_paper_cli.bibliography_manager import (
 )
 from academic_paper_cli.bibliography_enrichment import (
     BibliographyEnrichmentError,
+    accept_bibliography_candidate,
     diagnose_missing_identifiers,
     enrich_all_bibliography_records,
     enrich_bibliography_record,
@@ -304,6 +305,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    biblio_accept = subparsers.add_parser(
+        "biblio-accept-candidate",
+        help="Apply one stored bibliographic candidate to a record.",
+    )
+    biblio_accept.add_argument("--project", required=True, help="Project folder name.")
+    biblio_accept.add_argument("--doc-id", required=True, help="Document ID.")
+    biblio_accept.add_argument(
+        "--candidate",
+        type=int,
+        required=True,
+        help="1-based candidate number from biblio-search output.",
+    )
+    biblio_accept.add_argument(
+        "--verified",
+        action="store_true",
+        help="Mark the accepted metadata as verified.",
+    )
+    biblio_accept.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwriting an already verified bibliographic record.",
+    )
+    biblio_accept.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -528,6 +557,22 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit,
             )
             _render_candidates(candidates, title=f"Candidates: {args.doc_id}")
+            return 0
+
+        if args.command == "biblio-accept-candidate":
+            result = accept_bibliography_candidate(
+                project_name=args.project,
+                document_id=args.doc_id,
+                candidate_number=args.candidate,
+                projects_root=Path(args.projects_root),
+                verified=args.verified,
+                force=args.force,
+            )
+            console.print(
+                f"[green]Accepted candidate:[/green] {args.doc_id} "
+                f"#{args.candidate} from {result.source}"
+            )
+            _render_bibliography([result.record], title=f"Bibliographic Record: {args.doc_id}")
             return 0
 
     except (

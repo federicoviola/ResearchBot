@@ -447,6 +447,27 @@ class BibliographyCandidate:
             "confidence": self.confidence,
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "BibliographyCandidate":
+        authors_payload = payload.get("authors") or []
+        return cls(
+            source=str(payload.get("source", "")).strip(),
+            title=str(payload.get("title", "")).strip(),
+            authors=[
+                BibliographicAuthor.from_dict(author)
+                for author in authors_payload
+                if isinstance(author, dict)
+            ],
+            year=str(payload.get("year", "")).strip(),
+            item_type=str(payload.get("item_type", "generic")).strip() or "generic",
+            doi=str(payload.get("doi", "")).strip(),
+            isbn=str(payload.get("isbn", "")).strip(),
+            publisher=str(payload.get("publisher", "")).strip(),
+            journal=str(payload.get("journal", "")).strip(),
+            url=str(payload.get("url", "")).strip(),
+            confidence=str(payload.get("confidence", "medium")).strip() or "medium",
+        )
+
 
 @dataclass(frozen=True)
 class BibliographyIdentifierDiagnostic:

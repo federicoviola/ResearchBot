@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from academic_paper_cli.bibliography_enrichment import accept_bibliography_candidate
 from academic_paper_cli.bibliography_enrichment import diagnose_missing_identifiers
 from academic_paper_cli.bibliography_enrichment import enrich_all_bibliography_records
 from academic_paper_cli.bibliography_enrichment import enrich_bibliography_record
@@ -204,6 +205,77 @@ class BibliographyEnrichmentTests(unittest.TestCase):
             self.assertEqual(len(candidates), 1)
             self.assertEqual(candidates[0].source, "open_library")
             self.assertEqual(candidates[0].title, "Philosophy, politics, autonomy")
+
+    def test_accept_bibliography_candidate_applies_stored_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                title="Autonomy and Institutions",
+                authors=[],
+                citation_key="stale_key",
+            )
+            search_bibliography_candidates(
+                "paper",
+                "doc_0001",
+                projects_root,
+                fetcher=_candidate_fetcher,
+            )
+
+            result = accept_bibliography_candidate(
+                "paper",
+                "doc_0001",
+                1,
+                projects_root,
+                verified=True,
+            )
+
+            self.assertTrue(result.enriched)
+            self.assertEqual(result.record.metadata_status, "verified")
+            self.assertEqual(result.record.metadata_source, "open_library")
+            self.assertEqual(result.record.title, "Autonomy and Institutions")
+            self.assertEqual(result.record.year, "2021")
+            self.assertEqual(result.record.publisher, "Example Press")
+            self.assertEqual(result.record.citation_key, "federico_viola_2021_autonomy")
+
+    def test_cli_biblio_accept_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_bibliography(Path(temporary_directory))
+            set_bibliography_record(
+                "paper",
+                "doc_0001",
+                projects_root,
+                metadata_candidates=[
+                    {
+                        "source": "open_library",
+                        "title": "Philosophy, politics, autonomy",
+                        "authors": [{"family": "Castoriadis", "given": "Cornelius"}],
+                        "year": "1991",
+                        "item_type": "book",
+                        "publisher": "Oxford University Press",
+                        "confidence": "medium",
+                    }
+                ],
+            )
+
+            exit_code = main(
+                [
+                    "biblio-accept-candidate",
+                    "--project",
+                    "paper",
+                    "--doc-id",
+                    "doc_0001",
+                    "--candidate",
+                    "1",
+                    "--verified",
+                    "--projects-root",
+                    str(projects_root),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
 
     def test_cli_biblio_missing_identifiers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -183,6 +183,75 @@ def search_bibliography_candidates(
     return candidates
 
 
+def accept_bibliography_candidate(
+    project_name: str,
+    document_id: str,
+    candidate_number: int,
+    projects_root: Path = Path("projects"),
+    verified: bool = False,
+    force: bool = False,
+) -> BibliographyEnrichmentResult:
+    """Apply one previously stored candidate to a bibliographic record."""
+
+    current = show_bibliography_record(project_name, document_id, projects_root)
+    if current.metadata_status == "verified" and not force:
+        raise BibliographyEnrichmentError(
+            f"{document_id} is already verified. Use --force to overwrite curated metadata."
+        )
+    if candidate_number < 1:
+        raise BibliographyEnrichmentError("--candidate must be 1 or greater.")
+    if candidate_number > len(current.metadata_candidates):
+        raise BibliographyEnrichmentError(
+            f"{document_id} has only {len(current.metadata_candidates)} stored candidates. "
+            "Run biblio-search first."
+        )
+
+    candidate = BibliographyCandidate.from_dict(
+        current.metadata_candidates[candidate_number - 1]
+    )
+    updates = {
+        "item_type": candidate.item_type,
+        "title": candidate.title,
+        "authors": candidate.authors,
+        "year": candidate.year,
+        "publisher": candidate.publisher,
+        "journal": candidate.journal,
+        "doi": candidate.doi,
+        "isbn": candidate.isbn,
+        "url": candidate.url,
+        "citation_key": _citation_key(
+            candidate.authors,
+            candidate.year,
+            candidate.title,
+            document_id,
+        ),
+        "metadata_status": "verified" if verified else "needs_review",
+        "verified": verified,
+        "metadata_source": candidate.source,
+        "metadata_source_url": candidate.url,
+        "metadata_confidence": candidate.confidence,
+        "metadata_enriched_at": _utc_now_iso(),
+    }
+    clean_updates = {
+        key: value
+        for key, value in updates.items()
+        if value not in (None, "", [])
+    }
+    record = set_bibliography_record(
+        project_name,
+        document_id,
+        projects_root,
+        **clean_updates,
+    )
+    return BibliographyEnrichmentResult(
+        record=record,
+        enriched=True,
+        source=candidate.source,
+        source_url=candidate.url,
+        message=f"Applied candidate #{candidate_number}.",
+    )
+
+
 def _enrich_from_doi(
     project_name: str,
     document_id: str,

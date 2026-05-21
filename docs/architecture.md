@@ -122,6 +122,7 @@ python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
 python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0001 --title "..." --author "..."
+python3 main.py biblio-accept-candidate --project autonomy_blockchain_paper --doc-id doc_0001 --candidate 1 --verified
 ```
 
 Designed for later modules:
@@ -143,7 +144,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 2. Dataset Manager | Copy/register PDFs, bulk add PDFs, avoid duplicates, document IDs | `add-pdf`, `add-pdfs`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 3.5. Bibliographic Metadata Manager | Create, curate, validate, and export citation metadata | `biblio-init`, `biblio-list`, `biblio-show`, `biblio-set`, `biblio-validate`, `biblio-export` | Implemented |
-| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, and search candidate matches | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search` | Implemented |
+| 3.6. Bibliographic Metadata Enrichment | Enrich citation metadata from DOI/ISBN APIs, diagnose missing identifiers, search candidates, and apply reviewed candidates | `biblio-enrich`, `biblio-missing-identifiers`, `biblio-search`, `biblio-accept-candidate` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
 | 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
@@ -290,6 +291,7 @@ python3 main.py biblio-enrich --project autonomy_blockchain_paper --doc-id doc_0
 python3 main.py biblio-enrich --project autonomy_blockchain_paper --all
 python3 main.py biblio-missing-identifiers --project autonomy_blockchain_paper
 python3 main.py biblio-search --project autonomy_blockchain_paper --doc-id doc_0001 --title "Title" --author "Family"
+python3 main.py biblio-accept-candidate --project autonomy_blockchain_paper --doc-id doc_0001 --candidate 1 --verified
 ```
 
 External metadata enrichment is limited to citation metadata and does not expand

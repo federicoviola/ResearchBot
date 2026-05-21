@@ -234,6 +234,26 @@ Candidate search does not overwrite the bibliographic record. It stores the
 candidate list inside the document YAML under `metadata_candidates` so you can
 review it before curating the final citation metadata.
 
+Accept one stored candidate after reviewing the search results:
+
+```bash
+python3 main.py biblio-accept-candidate \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0008 \
+  --candidate 1
+```
+
+Use `--verified` only when you have reviewed the candidate and trust it as the
+final citation metadata:
+
+```bash
+python3 main.py biblio-accept-candidate \
+  --project autonomy_blockchain_paper \
+  --doc-id doc_0008 \
+  --candidate 1 \
+  --verified
+```
+
 By default, enriched records remain `needs_review`. Use `--auto-verify` only when
 you explicitly trust the matched external metadata:
 
