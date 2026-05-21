@@ -127,12 +127,12 @@ python3 main.py build-index --project autonomy_blockchain_paper
 python3 main.py index-status --project autonomy_blockchain_paper
 python3 main.py retrieve --project autonomy_blockchain_paper "autonomy self institution"
 python3 main.py query --project autonomy_blockchain_paper "What does the dataset say about autonomy?"
+python3 main.py outline --project autonomy_blockchain_paper --skill outline_design
 ```
 
 Designed for later modules:
 
 ```bash
-python3 main.py outline --project autonomy_blockchain_paper --skill outline_design
 python3 main.py list-skills --project autonomy_blockchain_paper
 python3 main.py add-skill --project autonomy_blockchain_paper --name philosophical_argumentation
 ```
@@ -149,7 +149,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | 4. Index Builder | Chunk text, embed chunks, store local index artifacts | `build-index`, `index-status` | Implemented |
 | 5a. Local Retrieval Engine | Retrieve ranked chunks from the local index with source metadata | `retrieve` | Implemented |
 | 5b. Query Engine | Compose grounded prompts and call configurable OpenAI-compatible LLM provider | `query` | Implemented |
-| 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Designed only |
+| 6. Outline Generator | Retrieve corpus context, apply skill, save grounded outline | `outline` | Implemented |
 
 ## 6. Data Models
 
@@ -176,6 +176,7 @@ Implemented dataclass models:
 - `IndexStatus`: current local index state.
 - `RetrievalResult`: ranked retrieved chunk with score and source label.
 - `QueryResult`: grounded answer, retrieved sources, provider/model, prompt path, and response path.
+- `OutlineResult`: grounded outline, retrieved sources, skill, provider/model, output path, prompt path, and response path.
 
 ## 7. Prompt Composition Strategy
 
@@ -238,13 +239,14 @@ Implemented module code lives in:
 - `academic_paper_cli/bibliography_enrichment.py`
 - `academic_paper_cli/index_builder.py`
 - `academic_paper_cli/llm_client.py`
+- `academic_paper_cli/outline_generator.py`
 - `academic_paper_cli/query_engine.py`
 - `academic_paper_cli/retrieval_engine.py`
 - `academic_paper_cli/models.py`
 - `academic_paper_cli/cli.py`
 - `main.py`
 
-Outline commands are not implemented yet.
+Outline generation is implemented. Later modules can add section drafting, review loops, and export formats.
 
 ## 11. Instructions to Run and Test
 

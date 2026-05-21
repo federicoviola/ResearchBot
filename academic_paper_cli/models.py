@@ -368,6 +368,23 @@ class QueryResult:
 
 
 @dataclass(frozen=True)
+class OutlineResult:
+    """Grounded outline result produced from retrieved chunks and a skill."""
+
+    project_name: str
+    topic: str
+    skill_name: str
+    outline: str
+    retrieval_results: list[RetrievalResult]
+    provider: str
+    model: str
+    output_path: str = ""
+    prompt_path: str = ""
+    response_path: str = ""
+    dry_run: bool = False
+
+
+@dataclass(frozen=True)
 class BibliographicAuthor:
     """Structured author name for academic citations."""
 

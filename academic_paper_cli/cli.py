@@ -37,6 +37,7 @@ from academic_paper_cli.index_builder import (
     get_index_status,
 )
 from academic_paper_cli.llm_client import LLMClientError
+from academic_paper_cli.outline_generator import OutlineGeneratorError, generate_outline
 from academic_paper_cli.pdf_processor import PdfProcessorError, ingest_project
 from academic_paper_cli.project_manager import (
     ProjectManagerError,
@@ -428,6 +429,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root folder containing all paper projects.",
     )
 
+    outline = subparsers.add_parser(
+        "outline",
+        help="Generate a grounded academic paper outline from retrieved chunks.",
+    )
+    outline.add_argument("--project", required=True, help="Project folder name.")
+    outline.add_argument(
+        "--skill",
+        default="outline_design",
+        help="Skill file name from config/skills without .md.",
+    )
+    outline.add_argument(
+        "--topic",
+        help="Outline topic or research question. Defaults to project config.",
+    )
+    outline.add_argument(
+        "--top-k",
+        type=int,
+        help="Number of chunks to retrieve before composing the outline prompt.",
+    )
+    outline.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Retrieve context and save the outline prompt without calling an LLM.",
+    )
+    outline.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
     return parser
 
 
@@ -716,6 +747,18 @@ def main(argv: list[str] | None = None) -> int:
             _render_query_result(result, title=f"Query: {args.project}")
             return 0
 
+        if args.command == "outline":
+            result = generate_outline(
+                project_name=args.project,
+                skill_name=args.skill,
+                projects_root=Path(args.projects_root),
+                topic=args.topic,
+                top_k=args.top_k,
+                dry_run=args.dry_run,
+            )
+            _render_outline_result(result, title=f"Outline: {args.project}")
+            return 0
+
     except (
         ProjectManagerError,
         DatasetManagerError,
@@ -725,6 +768,7 @@ def main(argv: list[str] | None = None) -> int:
         IndexBuilderError,
         RetrievalEngineError,
         QueryEngineError,
+        OutlineGeneratorError,
         LLMClientError,
     ) as error:
         console.print(f"[red]Error:[/red] {error}")
@@ -1011,6 +1055,32 @@ def _render_query_result(result, title: str) -> None:
             )
             console.print(f"{retrieval.rank}. {source}")
     console.print()
+    console.print(f"[dim]Prompt: {result.prompt_path}[/dim]")
+    console.print(f"[dim]Response: {result.response_path}[/dim]")
+
+
+def _render_outline_result(result, title: str) -> None:
+    console.rule(title)
+    console.print(_excerpt(result.outline, limit=900))
+    if result.retrieval_results:
+        console.print()
+        console.print("[bold]Sources[/bold]")
+        for retrieval in result.retrieval_results:
+            chunk = retrieval.chunk
+            source = " | ".join(
+                value
+                for value in [
+                    chunk.chunk_id,
+                    chunk.title,
+                    "; ".join(chunk.authors),
+                    chunk.year,
+                    f"score={retrieval.score:.3f}",
+                ]
+                if value
+            )
+            console.print(f"{retrieval.rank}. {source}")
+    console.print()
+    console.print(f"[green]Outline:[/green] {result.output_path}")
     console.print(f"[dim]Prompt: {result.prompt_path}[/dim]")
     console.print(f"[dim]Response: {result.response_path}[/dim]")
 

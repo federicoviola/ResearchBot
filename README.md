@@ -12,6 +12,7 @@ Current implementation:
 - Module 4: Index Builder
 - Module 5a: Local Retrieval Engine
 - Module 5b: Grounded Query Engine
+- Module 6: Grounded Outline Generator
 
 ## Requirements
 
@@ -377,7 +378,43 @@ Native Claude and Gemini clients are not implemented yet, but the provider
 configuration is structured so those adapters can be added without changing the
 retrieval or prompt pipeline.
 
-The app does not generate outlines yet.
+## Module 6 Usage
+
+Generate a grounded academic paper outline with a project skill:
+
+```bash
+python3 main.py outline \
+  --project autonomy_blockchain_paper \
+  --skill outline_design \
+  --topic "Autonomy, autopoiesis, and blockchain governance"
+```
+
+Inspect the retrieved context and saved prompt without calling an LLM:
+
+```bash
+python3 main.py outline \
+  --project autonomy_blockchain_paper \
+  --skill outline_design \
+  --topic "Autonomy, autopoiesis, and blockchain governance" \
+  --top-k 8 \
+  --dry-run
+```
+
+If `--topic` is omitted, the command uses `research_question`, then `title`,
+then `name` from `config/project.yaml`.
+
+The selected skill must exist in `config/skills/<skill>.md`. The generated
+outline is saved to:
+
+```text
+outputs/outlines/
+```
+
+The prompt and response audit logs are saved to:
+
+```text
+outputs/logs/
+```
 
 ## GitHub Workflow
 
