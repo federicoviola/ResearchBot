@@ -11,6 +11,7 @@ from rich.table import Table
 from academic_paper_cli.dataset_manager import (
     DatasetManagerError,
     add_pdf,
+    add_pdfs,
     list_documents,
 )
 from academic_paper_cli.pdf_processor import PdfProcessorError, ingest_project
@@ -59,6 +60,28 @@ def build_parser() -> argparse.ArgumentParser:
     add_pdf_parser.add_argument("--project", required=True, help="Project folder name.")
     add_pdf_parser.add_argument("--file", required=True, help="Path to the PDF file.")
     add_pdf_parser.add_argument(
+        "--projects-root",
+        default="projects",
+        help="Root folder containing all paper projects.",
+    )
+
+    add_pdfs_parser = subparsers.add_parser(
+        "add-pdfs",
+        help="Bulk add PDFs from files or folders to a project dataset.",
+    )
+    add_pdfs_parser.add_argument("--project", required=True, help="Project folder name.")
+    add_pdfs_parser.add_argument(
+        "--path",
+        action="append",
+        required=True,
+        help="PDF file or folder path. Can be provided multiple times.",
+    )
+    add_pdfs_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Search folders recursively for PDF files.",
+    )
+    add_pdfs_parser.add_argument(
         "--projects-root",
         default="projects",
         help="Root folder containing all paper projects.",
@@ -135,6 +158,26 @@ def main(argv: list[str] | None = None) -> int:
             _render_documents([result.record], title="Document")
             return 0
 
+        if args.command == "add-pdfs":
+            result = add_pdfs(
+                project_name=args.project,
+                paths=[Path(path) for path in args.path],
+                projects_root=Path(args.projects_root),
+                recursive=args.recursive,
+            )
+            console.print(
+                "[green]Bulk add complete:[/green] "
+                f"{result.added_count} added, "
+                f"{result.duplicate_count} duplicates, "
+                f"{len(result.skipped_paths)} skipped paths"
+            )
+            _render_add_pdf_results(result.results, title="Bulk Documents")
+            if result.skipped_paths:
+                console.print("[yellow]Skipped paths:[/yellow]")
+                for skipped_path in result.skipped_paths:
+                    console.print(f"  - {skipped_path}")
+            return 0
+
         if args.command == "list-docs":
             documents = list_documents(
                 project_name=args.project,
@@ -209,6 +252,33 @@ def _render_documents(documents, title: str) -> None:
             document.status,
             document.sha256[:12],
             document.stored_path,
+        )
+
+    console.print(table)
+
+
+def _render_add_pdf_results(results, title: str) -> None:
+    if not results:
+        console.print("[yellow]No PDFs registered.[/yellow]")
+        return
+
+    table = Table(title=title)
+    table.add_column("Document ID", style="bold")
+    table.add_column("Input File")
+    table.add_column("Result")
+    table.add_column("Duplicate Of")
+    table.add_column("SHA-256")
+
+    for result in results:
+        input_file = (
+            Path(result.input_path).name if result.input_path else result.record.original_filename
+        )
+        table.add_row(
+            result.record.document_id,
+            input_file,
+            "added" if result.added else "duplicate",
+            result.duplicate_of or "",
+            result.record.sha256[:12],
         )
 
     console.print(table)

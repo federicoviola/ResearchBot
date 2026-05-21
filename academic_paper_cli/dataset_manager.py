@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from academic_paper_cli.models import AddPdfResult, DocumentRecord, ProjectPaths
+from academic_paper_cli.models import AddPdfResult, BulkAddPdfResult, DocumentRecord, ProjectPaths
 from academic_paper_cli.project_manager import get_project_status, project_root
 
 
@@ -35,7 +35,12 @@ def add_pdf(
 
     duplicate = _find_document_by_checksum(state, checksum)
     if duplicate is not None:
-        return AddPdfResult(record=duplicate, added=False, duplicate_of=duplicate.document_id)
+        return AddPdfResult(
+            record=duplicate,
+            added=False,
+            duplicate_of=duplicate.document_id,
+            input_path=str(source_path),
+        )
 
     document_id = _next_document_id(state)
     stored_filename = f"{document_id}__{_safe_filename(source_path.name)}"
@@ -55,7 +60,26 @@ def add_pdf(
     state["updated_at"] = _utc_now_iso()
     _write_json(state_path, state)
 
-    return AddPdfResult(record=record, added=True)
+    return AddPdfResult(record=record, added=True, input_path=str(source_path))
+
+
+def add_pdfs(
+    project_name: str,
+    paths: list[Path],
+    projects_root: Path = Path("projects"),
+    recursive: bool = False,
+) -> BulkAddPdfResult:
+    """Register all PDFs found in the provided files or folders."""
+
+    if not paths:
+        raise DatasetManagerError("At least one file or folder path is required.")
+
+    source_files, skipped_paths = _collect_pdf_sources(paths, recursive)
+    results = [
+        add_pdf(project_name=project_name, source_file=source_file, projects_root=projects_root)
+        for source_file in source_files
+    ]
+    return BulkAddPdfResult(results=results, skipped_paths=skipped_paths)
 
 
 def list_documents(
@@ -71,6 +95,41 @@ def list_documents(
         DocumentRecord.from_dict(payload)
         for _, payload in sorted(documents.items(), key=lambda item: item[0])
     ]
+
+
+def _collect_pdf_sources(paths: list[Path], recursive: bool) -> tuple[list[Path], list[str]]:
+    source_files: list[Path] = []
+    skipped_paths: list[str] = []
+    seen: set[Path] = set()
+
+    for raw_path in paths:
+        path = raw_path.expanduser().resolve()
+        if path.is_file():
+            if path.suffix.lower() == ".pdf":
+                _append_unique(source_files, seen, path)
+            else:
+                skipped_paths.append(str(path))
+            continue
+
+        if path.is_dir():
+            iterator = path.rglob("*") if recursive else path.glob("*")
+            for candidate in sorted(iterator):
+                if candidate.is_file() and candidate.suffix.lower() == ".pdf":
+                    _append_unique(source_files, seen, candidate.resolve())
+            continue
+
+        skipped_paths.append(str(path))
+
+    if not source_files:
+        raise DatasetManagerError("No PDF files found in the provided paths.")
+
+    return source_files, skipped_paths
+
+
+def _append_unique(source_files: list[Path], seen: set[Path], path: Path) -> None:
+    if path not in seen:
+        source_files.append(path)
+        seen.add(path)
 
 
 def _valid_project_paths(project_name: str, projects_root: Path) -> ProjectPaths:

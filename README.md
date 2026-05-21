@@ -78,6 +78,24 @@ Add a PDF to a project dataset:
 python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
 ```
 
+Bulk add PDFs from a folder:
+
+```bash
+python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources
+```
+
+Bulk add PDFs recursively from a folder:
+
+```bash
+python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources --recursive
+```
+
+You can also pass `--path` multiple times to mix files and folders:
+
+```bash
+python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources --path ~/Downloads/paper.pdf
+```
+
 List registered PDFs:
 
 ```bash

@@ -103,6 +103,7 @@ Implemented:
 python3 main.py init-project --name autonomy_blockchain_paper
 python3 main.py status --project autonomy_blockchain_paper
 python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
+python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources --recursive
 python3 main.py list-docs --project autonomy_blockchain_paper
 python3 main.py ingest --project autonomy_blockchain_paper
 ```
@@ -123,7 +124,7 @@ python3 main.py add-skill --project autonomy_blockchain_paper --name philosophic
 | Module | Responsibility | Commands | Current Status |
 |---|---|---|---|
 | 1. Project Manager | Create folders, defaults, state files, validate structure, status | `init-project`, `status` | Implemented |
-| 2. Dataset Manager | Copy/register PDFs, avoid duplicates, document IDs | `add-pdf`, `list-docs` | Implemented |
+| 2. Dataset Manager | Copy/register PDFs, bulk add PDFs, avoid duplicates, document IDs | `add-pdf`, `add-pdfs`, `list-docs` | Implemented |
 | 3. PDF Processor | Extract text and metadata, update ingestion state | `ingest` | Implemented |
 | 4. Index Builder | Chunk text, embed chunks, store vector index | `build-index`, `index-status` | Designed only |
 | 5. Query Engine | Retrieve chunks, compose grounded prompts, call LLM | `query` | Designed only |
@@ -141,6 +142,7 @@ Implemented dataclass models:
 - `ProjectStatus`
 
 - `DocumentRecord`: document ID, original source path, stored PDF path, checksum, registration date.
+- `BulkAddPdfResult`: summary for bulk PDF registration.
 - `IngestionResult`: document ID, extraction status, text path, metadata path, page and word counts.
 
 Later modules should add:
@@ -231,6 +233,7 @@ Add and list a PDF:
 
 ```bash
 python3 main.py add-pdf --project autonomy_blockchain_paper --file ./sources/castoriadis.pdf
+python3 main.py add-pdfs --project autonomy_blockchain_paper --path ./sources --recursive
 python3 main.py list-docs --project autonomy_blockchain_paper
 ```
 

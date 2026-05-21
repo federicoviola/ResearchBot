@@ -216,6 +216,27 @@ class AddPdfResult:
     record: DocumentRecord
     added: bool
     duplicate_of: str | None = None
+    input_path: str | None = None
+
+
+@dataclass(frozen=True)
+class BulkAddPdfResult:
+    """Result of registering PDFs from multiple files or folders."""
+
+    results: list[AddPdfResult]
+    skipped_paths: list[str] = field(default_factory=list)
+
+    @property
+    def added_count(self) -> int:
+        return sum(1 for result in self.results if result.added)
+
+    @property
+    def duplicate_count(self) -> int:
+        return sum(1 for result in self.results if not result.added)
+
+    @property
+    def total_pdf_count(self) -> int:
+        return len(self.results)
 
 
 @dataclass(frozen=True)
