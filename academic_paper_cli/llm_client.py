@@ -89,10 +89,31 @@ class OpenAICompatibleClient:
             raise LLMClientError("LLM provider returned invalid JSON.") from error
 
         try:
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            message = choice["message"]
+            content = message["content"]
         except (KeyError, IndexError, TypeError) as error:
             raise LLMClientError("LLM provider response did not include message content.") from error
-        return str(content).strip()
+        answer = str(content).strip()
+        if answer:
+            return answer
+
+        finish_reason = str(choice.get("finish_reason", ""))
+        reasoning_content = str(message.get("reasoning_content", "")).strip()
+        if reasoning_content and finish_reason == "length":
+            raise LLMClientError(
+                "LLM provider returned no final answer because it used the available "
+                "completion tokens for reasoning and stopped at the max token limit. "
+                "Increase llm.max_tokens, disable the model's thinking/reasoning mode "
+                "in the local server, or use a non-reasoning instruct model."
+            )
+        if reasoning_content:
+            raise LLMClientError(
+                "LLM provider returned reasoning content but no final answer. "
+                "Disable thinking/reasoning mode or use a model that returns final "
+                "content in the OpenAI-compatible 'message.content' field."
+            )
+        raise LLMClientError("LLM provider returned an empty answer.")
 
 
 def client_from_settings(settings: LLMSettings) -> LLMClient:
