@@ -46,6 +46,35 @@ To reactivate it later:
 source .venv/bin/activate
 ```
 
+## Local Environment Variables
+
+Keep API keys and machine-specific settings in a local `.env` file. The real
+`.env` file is ignored by Git and must not be committed.
+
+Create it from the versioned template:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your local values:
+
+```bash
+OPENAI_API_KEY=sk-your-key
+LM_STUDIO_API_KEY=
+OLLAMA_API_KEY=
+VLLM_API_KEY=
+```
+
+The CLI loads `.env` automatically before running commands. Existing shell
+environment variables take priority over values in `.env`.
+
+You can point the CLI to a different env file when needed:
+
+```bash
+ACADEMIC_PAPER_CLI_ENV_FILE=/absolute/path/to/researchbot.env python3 main.py status --project autonomy_blockchain_paper
+```
+
 ## Run Tests
 
 ```bash
@@ -373,7 +402,7 @@ llm:
 ```
 
 For LM Studio or vLLM, set `base_url` to that server's `/v1` endpoint. For
-OpenAI, use `https://api.openai.com/v1` and set `OPENAI_API_KEY`.
+OpenAI, use `https://api.openai.com/v1` and set `OPENAI_API_KEY` in `.env`.
 If a local model is slow to answer, increase `timeout_seconds`.
 
 Native Claude and Gemini clients are not implemented yet, but the provider

@@ -31,6 +31,7 @@ from academic_paper_cli.dataset_manager import (
     add_pdfs,
     list_documents,
 )
+from academic_paper_cli.env_loader import load_default_env
 from academic_paper_cli.index_builder import (
     IndexBuilderError,
     build_index,
@@ -463,6 +464,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        load_default_env()
+    except ValueError as error:
+        console.print(f"[red]Environment error:[/red] {error}")
+        return 2
+
     parser = build_parser()
     args = parser.parse_args(argv)
 
