@@ -372,6 +372,7 @@ Inspect the retrieved context and saved prompt without calling an LLM:
 python3 main.py query \
   --project autonomy_blockchain_paper \
   --top-k 5 \
+  --context-chars 1200 \
   --dry-run \
   "What does the dataset say about autonomy and self-institution?"
 ```
@@ -379,6 +380,11 @@ python3 main.py query \
 The query command always retrieves chunks first and composes a closed prompt.
 The LLM is instructed to answer only from those chunks, cite source chunk IDs,
 and state when the retrieved context is insufficient.
+
+`--top-k` controls how many chunks are retrieved. `--context-chars` controls how
+much text from each retrieved chunk is included in the final LLM prompt. Lower
+`--context-chars` when a local model reports that the prompt exceeds its context
+length. Use `--context-chars 0` only when you intentionally want full chunks.
 
 Query prompts and responses are saved in:
 
@@ -399,6 +405,16 @@ llm:
   temperature: 0.2
   max_tokens: 1800
   timeout_seconds: 120
+```
+
+Default retrieval controls are also configured in `config/project.yaml`:
+
+```yaml
+retrieval:
+  top_k: 8
+  chunk_size: 900
+  chunk_overlap: 150
+  context_chars: 1200
 ```
 
 For LM Studio or vLLM, set `base_url` to that server's `/v1` endpoint. For
@@ -428,6 +444,7 @@ python3 main.py outline \
   --skill outline_design \
   --topic "Autonomy, autopoiesis, and blockchain governance" \
   --top-k 8 \
+  --context-chars 1200 \
   --dry-run
 ```
 

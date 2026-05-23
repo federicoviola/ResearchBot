@@ -27,6 +27,7 @@ def generate_outline(
     projects_root: Path = Path("projects"),
     topic: str | None = None,
     top_k: int | None = None,
+    context_chars: int | None = None,
     dry_run: bool = False,
     llm_client: LLMClient | None = None,
 ) -> OutlineResult:
@@ -37,6 +38,7 @@ def generate_outline(
     resolved_topic = _resolve_topic(config, topic)
     skill_text = _load_skill(paths, skill_name)
     llm_settings = _llm_settings(config)
+    resolved_context_chars = _context_chars(config, context_chars)
     retrieval_results = retrieve_chunks(project_name, resolved_topic, projects_root, top_k)
     if not retrieval_results:
         raise OutlineGeneratorError("No retrieved context available. Run build-index or adjust topic.")
@@ -48,6 +50,7 @@ def generate_outline(
         skill_name=skill_name,
         skill_text=skill_text,
         retrieval_results=retrieval_results,
+        context_chars=resolved_context_chars,
     )
     if dry_run:
         outline = "DRY RUN: no LLM call was made. Review the saved outline prompt and sources."
@@ -66,6 +69,7 @@ def generate_outline(
             provider=llm_settings.provider,
             model=llm_settings.model,
             dry_run=dry_run,
+            context_chars=resolved_context_chars,
         ),
         messages=messages,
     )
@@ -78,12 +82,13 @@ def _compose_outline_messages(
     skill_name: str,
     skill_text: str,
     retrieval_results: list[RetrievalResult],
+    context_chars: int,
 ) -> list[dict[str, str]]:
     system_prompt = _read_text(paths.config_dir / "system_prompt.md")
     writing_style = _read_text(paths.config_dir / "writing_style.md")
     citation_style = _read_text(paths.config_dir / "citation_style.yaml")
     project_summary = yaml.safe_dump(config, sort_keys=False, allow_unicode=False)
-    context = _format_retrieved_context(retrieval_results)
+    context = _format_retrieved_context(retrieval_results, context_chars=context_chars)
     unsupported = _unsupported_answer(config)
 
     system_content = "\n\n".join(
@@ -158,6 +163,7 @@ def _save_outline_result(
                 "provider": result.provider,
                 "model": result.model,
                 "dry_run": result.dry_run,
+                "context_chars": result.context_chars,
                 "sources": [
                     {
                         "rank": retrieval.rank,
@@ -189,7 +195,21 @@ def _save_outline_result(
         prompt_path=str(prompt_path),
         response_path=str(response_path),
         dry_run=result.dry_run,
+        context_chars=result.context_chars,
     )
+
+
+def _context_chars(config: dict[str, Any], override: int | None) -> int:
+    if override is not None:
+        if override < 0:
+            raise OutlineGeneratorError("--context-chars must be zero or a positive integer.")
+        return override
+    retrieval = config.get("retrieval", {}) if isinstance(config, dict) else {}
+    value = retrieval.get("context_chars", 1200) if isinstance(retrieval, dict) else 1200
+    context_chars = int(value)
+    if context_chars < 0:
+        raise OutlineGeneratorError("retrieval.context_chars must be zero or a positive integer.")
+    return context_chars
 
 
 def _load_skill(paths: ProjectPaths, skill_name: str) -> str:

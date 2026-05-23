@@ -25,7 +25,7 @@ class EnvLoaderTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "already-set"}, clear=False):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "already-set"}, clear=True):
                 loaded = load_env_file(env_path)
 
                 self.assertEqual(os.environ["OPENAI_API_KEY"], "already-set")

@@ -55,6 +55,24 @@ class QueryEngineTests(unittest.TestCase):
             self.assertIn("DRY RUN", result.answer)
             self.assertTrue(Path(result.prompt_path).is_file())
 
+    def test_query_dataset_limits_context_text_per_chunk(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            projects_root = _project_with_index(Path(temporary_directory))
+
+            result = query_dataset(
+                "paper",
+                "autonomy",
+                projects_root,
+                top_k=1,
+                context_chars=25,
+                dry_run=True,
+            )
+
+            prompt = json.loads(Path(result.prompt_path).read_text(encoding="utf-8"))
+            user_message = prompt["messages"][1]["content"]
+            self.assertIn("Context truncated to 25 characters", user_message)
+            self.assertEqual(result.context_chars, 25)
+
     def test_cli_query_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             projects_root = _project_with_index(Path(temporary_directory))
@@ -66,6 +84,8 @@ class QueryEngineTests(unittest.TestCase):
                     "paper",
                     "--top-k",
                     "1",
+                    "--context-chars",
+                    "25",
                     "--dry-run",
                     "--projects-root",
                     str(projects_root),

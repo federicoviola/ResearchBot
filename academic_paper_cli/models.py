@@ -21,6 +21,7 @@ class LLMProviderConfig:
     api_key_env: str = "OPENAI_API_KEY"
     temperature: float = 0.2
     max_tokens: int = 1800
+    timeout_seconds: int = 120
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -30,6 +31,7 @@ class LLMProviderConfig:
             "api_key_env": self.api_key_env,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "timeout_seconds": self.timeout_seconds,
         }
 
 
@@ -40,6 +42,7 @@ class RetrievalConfig:
     top_k: int = 8
     chunk_size: int = 900
     chunk_overlap: int = 150
+    context_chars: int = 1200
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +50,7 @@ class RetrievalConfig:
             "top_k": self.top_k,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
+            "context_chars": self.context_chars,
             "embedding_model": self.embedding_model,
         }
 
@@ -361,6 +365,7 @@ class QueryResult:
     prompt_path: str = ""
     response_path: str = ""
     dry_run: bool = False
+    context_chars: int = 0
 
     @property
     def source_labels(self) -> list[str]:
@@ -382,6 +387,7 @@ class OutlineResult:
     prompt_path: str = ""
     response_path: str = ""
     dry_run: bool = False
+    context_chars: int = 0
 
 
 @dataclass(frozen=True)

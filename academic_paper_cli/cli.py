@@ -420,6 +420,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of chunks to retrieve before composing the grounded prompt.",
     )
     query.add_argument(
+        "--context-chars",
+        type=int,
+        help=(
+            "Maximum characters of text to include from each retrieved chunk. "
+            "Defaults to config/project.yaml retrieval.context_chars. Use 0 for full chunks."
+        ),
+    )
+    query.add_argument(
         "--dry-run",
         action="store_true",
         help="Retrieve context and save the prompt without calling an LLM.",
@@ -448,6 +456,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--top-k",
         type=int,
         help="Number of chunks to retrieve before composing the outline prompt.",
+    )
+    outline.add_argument(
+        "--context-chars",
+        type=int,
+        help=(
+            "Maximum characters of text to include from each retrieved chunk. "
+            "Defaults to config/project.yaml retrieval.context_chars. Use 0 for full chunks."
+        ),
     )
     outline.add_argument(
         "--dry-run",
@@ -749,6 +765,7 @@ def main(argv: list[str] | None = None) -> int:
                 query=args.question,
                 projects_root=Path(args.projects_root),
                 top_k=args.top_k,
+                context_chars=args.context_chars,
                 dry_run=args.dry_run,
             )
             _render_query_result(result, title=f"Query: {args.project}")
@@ -761,6 +778,7 @@ def main(argv: list[str] | None = None) -> int:
                 projects_root=Path(args.projects_root),
                 topic=args.topic,
                 top_k=args.top_k,
+                context_chars=args.context_chars,
                 dry_run=args.dry_run,
             )
             _render_outline_result(result, title=f"Outline: {args.project}")
@@ -1061,6 +1079,8 @@ def _render_query_result(result, title: str) -> None:
                 if value
             )
             console.print(f"{retrieval.rank}. {source}")
+    if result.context_chars:
+        console.print(f"[dim]Context limit: {result.context_chars} chars per chunk[/dim]")
     console.print()
     console.print(f"[dim]Prompt: {result.prompt_path}[/dim]")
     console.print(f"[dim]Response: {result.response_path}[/dim]")
@@ -1086,6 +1106,8 @@ def _render_outline_result(result, title: str) -> None:
                 if value
             )
             console.print(f"{retrieval.rank}. {source}")
+    if result.context_chars:
+        console.print(f"[dim]Context limit: {result.context_chars} chars per chunk[/dim]")
     console.print()
     console.print(f"[green]Outline:[/green] {result.output_path}")
     console.print(f"[dim]Prompt: {result.prompt_path}[/dim]")

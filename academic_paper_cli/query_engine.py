@@ -24,6 +24,7 @@ def query_dataset(
     query: str,
     projects_root: Path = Path("projects"),
     top_k: int | None = None,
+    context_chars: int | None = None,
     dry_run: bool = False,
     llm_client: LLMClient | None = None,
 ) -> QueryResult:
@@ -35,6 +36,7 @@ def query_dataset(
     paths = _valid_project_paths(project_name, projects_root)
     config = _load_project_config(paths)
     llm_settings = _llm_settings(config)
+    resolved_context_chars = _context_chars(config, context_chars)
     retrieval_results = retrieve_chunks(project_name, query, projects_root, top_k)
     if not retrieval_results:
         unsupported = _unsupported_answer(config)
@@ -48,11 +50,12 @@ def query_dataset(
                 provider=llm_settings.provider,
                 model=llm_settings.model,
                 dry_run=dry_run,
+                context_chars=resolved_context_chars,
             ),
             messages=[],
         )
 
-    messages = _compose_messages(paths, config, query, retrieval_results)
+    messages = _compose_messages(paths, config, query, retrieval_results, resolved_context_chars)
     if dry_run:
         answer = "DRY RUN: no LLM call was made. Review the saved prompt and retrieved sources."
     else:
@@ -68,6 +71,7 @@ def query_dataset(
             provider=llm_settings.provider,
             model=llm_settings.model,
             dry_run=dry_run,
+            context_chars=resolved_context_chars,
         ),
         messages=messages,
     )
@@ -78,12 +82,13 @@ def _compose_messages(
     config: dict[str, Any],
     query: str,
     retrieval_results: list[RetrievalResult],
+    context_chars: int,
 ) -> list[dict[str, str]]:
     system_prompt = _read_text(paths.config_dir / "system_prompt.md")
     writing_style = _read_text(paths.config_dir / "writing_style.md")
     citation_style = _read_text(paths.config_dir / "citation_style.yaml")
     project_summary = yaml.safe_dump(config, sort_keys=False, allow_unicode=False)
-    context = _format_retrieved_context(retrieval_results)
+    context = _format_retrieved_context(retrieval_results, context_chars=context_chars)
     unsupported = _unsupported_answer(config)
 
     system_content = "\n\n".join(
@@ -119,10 +124,15 @@ def _compose_messages(
     ]
 
 
-def _format_retrieved_context(results: list[RetrievalResult]) -> str:
+def _format_retrieved_context(
+    results: list[RetrievalResult],
+    *,
+    context_chars: int = 1200,
+) -> str:
     blocks = []
     for result in results:
         chunk = result.chunk
+        chunk_text = _limit_context_text(chunk.text, context_chars)
         source = " | ".join(
             value
             for value in [
@@ -139,11 +149,22 @@ def _format_retrieved_context(results: list[RetrievalResult]) -> str:
                 [
                     f"[SOURCE {result.rank}] {source}",
                     f"score: {result.score:.6f}",
-                    chunk.text,
+                    chunk_text,
                 ]
             )
         )
     return "\n\n---\n\n".join(blocks)
+
+
+def _limit_context_text(text: str, context_chars: int) -> str:
+    clean_text = text.strip()
+    if context_chars <= 0 or len(clean_text) <= context_chars:
+        return clean_text
+    truncated = clean_text[:context_chars].rstrip()
+    return (
+        f"{truncated}\n\n"
+        f"[Context truncated to {context_chars} characters from {len(clean_text)} total.]"
+    )
 
 
 def _save_query_result(
@@ -167,6 +188,7 @@ def _save_query_result(
         "provider": result.provider,
         "model": result.model,
         "dry_run": result.dry_run,
+        "context_chars": result.context_chars,
         "sources": [
             {
                 "rank": retrieval.rank,
@@ -194,7 +216,21 @@ def _save_query_result(
         prompt_path=str(prompt_path),
         response_path=str(response_path),
         dry_run=result.dry_run,
+        context_chars=result.context_chars,
     )
+
+
+def _context_chars(config: dict[str, Any], override: int | None) -> int:
+    if override is not None:
+        if override < 0:
+            raise QueryEngineError("--context-chars must be zero or a positive integer.")
+        return override
+    retrieval = config.get("retrieval", {}) if isinstance(config, dict) else {}
+    value = retrieval.get("context_chars", 1200) if isinstance(retrieval, dict) else 1200
+    context_chars = int(value)
+    if context_chars < 0:
+        raise QueryEngineError("retrieval.context_chars must be zero or a positive integer.")
+    return context_chars
 
 
 def _llm_settings(config: dict[str, Any]) -> LLMSettings:
